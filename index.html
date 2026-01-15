@@ -16,6 +16,8 @@
     
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        
+        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -28,14 +30,18 @@
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         .animate-scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
+        /* Accordion Animation Classes */
+        .grid-rows-0 { grid-template-rows: 0fr; }
+        .grid-rows-1 { grid-template-rows: 1fr; }
+        
         /* Dynamic Island Styles */
         .dynamic-island {
             position: fixed;
             top: 1.5rem;
             left: 50%;
             transform: translateX(-50%) translateY(-150%);
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(12px);
+            background: rgba(15, 23, 42, 0.9); /* Darker background */
+            backdrop-filter: blur(16px);
             color: white;
             padding: 0.75rem 1.5rem;
             border-radius: 9999px;
@@ -43,11 +49,12 @@
             align-items: center;
             gap: 12px;
             z-index: 100;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
             transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             width: auto;
             max-width: 90%;
             opacity: 0;
+            border: 1px solid rgba(255,255,255,0.1);
         }
         .dynamic-island.show {
             transform: translateX(-50%) translateY(0);
@@ -62,21 +69,21 @@
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
         /* Shared Styles */
-        .label-text { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem; letter-spacing: 0.01em; }
-        .input-field { width: 100%; padding: 0.75rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; outline: none; transition: all 0.2s; font-weight: 500; color: #1e293b; }
+        .label-text { display: block; font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 0.5rem; letter-spacing: 0.01em; }
+        .input-field { width: 100%; padding: 0.875rem 1rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 1rem; outline: none; transition: all 0.2s; font-weight: 600; color: #1e293b; }
         .input-field:focus { background: #fff; ring: 3px solid #bfdbfe; border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1); }
-        .btn-primary { background-color: #0f172a; color: white; padding: 0.875rem; border-radius: 0.75rem; font-weight: 600; letter-spacing: 0.025em; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2); }
-        .btn-primary:hover { background-color: #1e293b; transform: translateY(-1px); }
-        .btn-option { padding: 0.6rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; font-size: 0.875rem; font-weight: 500; color: #64748b; background: white; transition: all; }
-        .btn-option:hover { background: #f1f5f9; }
-        .btn-option.active { background-color: #eff6ff; border-color: #3b82f6; color: #1d4ed8; font-weight: 600; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1); }
-        .currency-prefix { position: absolute; left: 1rem; top: 0.75rem; color: #94a3b8; font-weight: 600; }
+        .btn-primary { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 1rem; border-radius: 1rem; font-weight: 700; letter-spacing: 0.025em; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.3); }
+        .btn-option { padding: 0.75rem; border-radius: 0.75rem; border: 1px solid #e2e8f0; font-size: 0.875rem; font-weight: 600; color: #64748b; background: white; transition: all; }
+        .btn-option:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .btn-option.active { background-color: #eff6ff; border-color: #3b82f6; color: #1d4ed8; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1); }
+        .currency-prefix { position: absolute; left: 1.25rem; top: 0.875rem; color: #94a3b8; font-weight: 700; }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="text-slate-800 h-screen overflow-hidden flex flex-col">
+<body class="text-slate-800 h-screen overflow-hidden flex flex-col bg-[#f8fafc]">
 
     <div id="app" class="flex flex-col h-full w-full">
         <!-- Initial Loader -->
@@ -85,7 +92,7 @@
                 <div class="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
                 <div class="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
             </div>
-            <p class="text-slate-500 font-medium">Memuat MyKeuangan...</p>
+            <p class="text-slate-500 font-bold tracking-tight">Memuat...</p>
         </div>
     </div>
 
@@ -94,7 +101,7 @@
         <div id="island-icon"></div>
         <div class="flex flex-col">
             <span id="island-title" class="text-sm font-bold leading-tight">Notifikasi</span>
-            <span id="island-message" class="text-xs text-gray-300 leading-tight">Pesan disini</span>
+            <span id="island-message" class="text-xs text-slate-300 leading-tight">Pesan disini</span>
         </div>
     </div>
 
@@ -150,7 +157,7 @@
 
             editingItem: null, selectedDebt: null,
             loginCodeInput: '',
-            expandedPerson: null,
+            expandedPerson: null, // Keep track but don't depend on it for render
 
             filter: { type: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth() },
             dashboardFilter: { type: 'all', walletId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' },
@@ -184,8 +191,8 @@
             islandMsg.innerText = message;
             
             let iconSvg = '';
-            if (type === 'success') iconSvg = `<svg class="text-green-400 w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
-            else if (type === 'error') iconSvg = `<svg class="text-red-500 w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+            if (type === 'success') iconSvg = `<svg class="text-emerald-400 w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+            else if (type === 'error') iconSvg = `<svg class="text-rose-500 w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
             else iconSvg = `<svg class="text-blue-400 w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
             
             islandIcon.innerHTML = iconSvg;
@@ -213,17 +220,17 @@
         }
 
         function updateNavbarActiveState() {
-            const menuItems = ['dashboard', 'transactions', 'debts', 'settings'];
+            const menuItems = ['dashboard', 'debts', 'settings'];
             menuItems.forEach(id => {
                 const btn = document.getElementById(`nav-btn-${id}`);
                 const icon = document.getElementById(`nav-icon-${id}`);
                 if (btn && icon) {
                     if (state.activeMenu === id) {
-                        btn.className = "relative px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 flex items-center gap-2 bg-white text-blue-700 shadow-sm ring-1 ring-slate-200";
-                        icon.classList.add('stroke-[2.5px]');
+                        btn.className = "relative px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 bg-slate-900 text-white shadow-lg shadow-slate-200 transform scale-105";
+                        icon.classList.add('stroke-2');
                     } else {
-                        btn.className = "relative px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 flex items-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200/50";
-                        icon.classList.remove('stroke-[2.5px]');
+                        btn.className = "relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100";
+                        icon.classList.remove('stroke-2');
                     }
                 }
             });
@@ -285,7 +292,7 @@
                     localStorage.removeItem('finance_access_code');
                     state.activeMenu = 'dashboard';
                     const appDiv = document.getElementById('app');
-                    appDiv.innerHTML = ''; // Full Reset
+                    appDiv.innerHTML = ''; 
                     render();
                 }, 'danger');
             },
@@ -297,7 +304,33 @@
                 }
             },
             setSettingsTab: (tab) => { state.settingsTab = tab; state.shouldRefreshContent = true; render(); },
-            toggleExpandPerson: (personName) => { state.expandedPerson = state.expandedPerson === personName ? null : personName; state.shouldRefreshContent = true; render(); },
+            
+            // --- FIXED TOGGLE FUNCTION (ZERO FLICKER) ---
+            toggleExpandPerson: (personName) => { 
+                // 1. Update State (silently, so it persists if data refreshes later)
+                state.expandedPerson = state.expandedPerson === personName ? null : personName;
+                
+                // 2. Direct DOM Manipulation (Instant, no re-render)
+                // Use a safe ID (remove spaces/special chars)
+                const safeId = personName.replace(/[^a-zA-Z0-9]/g, '_');
+                const detailEl = document.getElementById(`details-${safeId}`);
+                const iconEl = document.getElementById(`icon-${safeId}`);
+                
+                if (detailEl) {
+                    const isClosed = detailEl.classList.contains('grid-rows-0');
+                    if (isClosed) {
+                        detailEl.classList.remove('grid-rows-0');
+                        detailEl.classList.add('grid-rows-1');
+                        if (iconEl) iconEl.style.transform = 'rotate(180deg)';
+                    } else {
+                        detailEl.classList.add('grid-rows-0');
+                        detailEl.classList.remove('grid-rows-1');
+                        if (iconEl) iconEl.style.transform = 'rotate(0deg)';
+                    }
+                }
+                // NOTE: No render() call here!
+            },
+            
             setTxFilter: (field, value) => { state.filter[field] = value; state.shouldRefreshContent = true; render(); },
             setDashboardFilter: (field, value) => {
                 state.dashboardFilter[field] = value;
@@ -480,7 +513,7 @@
                             <div class="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
                             <div class="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
                         </div>
-                        <p class="text-slate-500 font-semibold animate-pulse">Menyiapkan data...</p>
+                        <p class="text-slate-500 font-bold tracking-tight animate-pulse">Menyiapkan data...</p>
                     </div>`; 
                 return; 
             }
@@ -494,12 +527,11 @@
 
             // 3. App Shell Check (Prevent Full Re-render)
             let mainContentArea = document.getElementById('main-content-area');
+            let navbarArea = document.getElementById('navbar-area');
             
             if (!mainContentArea) {
-                // Initialize "App Shell" only once
                 const menuItems = [
                     { id: 'dashboard', label: 'Ringkasan', icon: 'layout-dashboard' },
-                    { id: 'transactions', label: 'Transaksi', icon: 'arrow-right-left' },
                     { id: 'debts', label: 'Hutang', icon: 'banknote' },
                     { id: 'settings', label: 'Pengaturan', icon: 'settings' },
                 ];
@@ -507,78 +539,67 @@
                 appDiv.innerHTML = `
                     <nav id="navbar-area" class="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200">
                         <div class="max-w-5xl mx-auto px-4">
-                            <div class="flex items-center justify-between h-16">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md shadow-blue-200">
-                                        <i data-lucide="wallet" width="16"></i>
+                            <div class="flex items-center justify-between h-20">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200 transform rotate-3">
+                                        <i data-lucide="wallet" width="20"></i>
                                     </div>
-                                    <span class="font-extrabold text-lg text-slate-800 tracking-tight hidden sm:block">MyKeuangan</span>
+                                    <span class="font-extrabold text-xl text-slate-800 tracking-tight hidden sm:block">MyKeuangan</span>
                                 </div>
-                                <div class="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl">
+                                <div class="flex items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-white/50 shadow-inner">
                                     ${menuItems.map(item => `
                                         <button id="nav-btn-${item.id}" onclick="app.setMenu('${item.id}')" 
-                                            class="relative px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 flex items-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200/50">
-                                            <i id="nav-icon-${item.id}" data-lucide="${item.icon}" width="16"></i>
+                                            class="relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-white/50">
+                                            <i id="nav-icon-${item.id}" data-lucide="${item.icon}" width="18"></i>
                                             <span class="hidden md:inline">${item.label}</span>
                                         </button>
                                     `).join('')}
                                 </div>
-                                <button onclick="app.logout()" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Keluar">
+                                <button onclick="app.logout()" class="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all" title="Keluar">
                                     <i data-lucide="log-out" width="20"></i>
                                 </button>
                             </div>
                         </div>
                     </nav>
-                    <main id="main-content-scroller" class="flex-1 overflow-y-auto bg-slate-50 scroll-smooth">
-                        <div id="main-content-area" class="max-w-5xl mx-auto p-4 lg:p-8 pb-24"></div>
+                    <main id="main-content-scroller" class="flex-1 overflow-y-auto bg-[#f8fafc] scroll-smooth">
+                        <div id="main-content-area" class="max-w-5xl mx-auto p-4 lg:p-8 pb-32"></div>
                     </main>
                     <div id="modal-area"></div>
                     <div id="confirm-modal-area"></div>
                 `;
                 mainContentArea = document.getElementById('main-content-area');
-                state.lastRenderedMenu = null; // Force first content render
-                lucide.createIcons(); // Initialize navbar icons
+                navbarArea = document.getElementById('navbar-area');
+                state.lastRenderedMenu = null; 
+                lucide.createIcons(); 
             }
 
-            // 4. Update Navbar State (Class Toggling - No Re-render)
             updateNavbarActiveState();
 
-            // 5. SMART CONTENT UPDATE (The Key Fix)
-            // Only update main content if we actually changed menu or data needs refresh
+            // 5. SMART CONTENT UPDATE
             if (state.shouldRefreshContent || state.activeMenu !== state.lastRenderedMenu) {
-                // Determine animation: Only animate if MENU changed. If it's just data refresh (filter/add), NO animation.
                 const isMenuChange = state.activeMenu !== state.lastRenderedMenu;
-                const animClass = isMenuChange ? 'animate-fade-in' : ''; 
+                const animClass = isMenuChange ? 'animate-fade-in' : ''; // Only animate on menu change, NOT on filter
                 
                 let contentHTML = '';
                 if (state.activeMenu === 'settings') contentHTML = `<div class="${animClass}">${window.app.renderSettingsModalOriginal()}</div>`;
-                else if (state.activeMenu === 'transactions') contentHTML = `<div class="${animClass}">${window.app.renderTransactionsOriginal()}</div>`;
                 else if (state.activeMenu === 'debts') contentHTML = `<div class="${animClass}">${window.app.renderDebtsGrouped()}</div>`;
                 else contentHTML = `<div class="${animClass}">${window.app.renderDashboardOriginal()}</div>`;
                 
-                // Save scroll position
                 const scroller = document.getElementById('main-content-scroller');
                 const scrollTop = scroller ? scroller.scrollTop : 0;
                 
-                // Update Inner Content
                 mainContentArea.innerHTML = contentHTML;
                 
-                // Restore scroll position
                 if (scroller) scroller.scrollTop = scrollTop;
                 
-                // Only scan for new icons in the main content area to avoid redundant processing
                 lucide.createIcons({ root: mainContentArea });
                 
-                // Update tracker
                 state.lastRenderedMenu = state.activeMenu;
-                state.shouldRefreshContent = false; // Reset flag
+                state.shouldRefreshContent = false;
             }
 
-            // 6. Update Modals (Always, as they have their own inputs/states)
-            // Modals are overlays, updating them doesn't affect main content
             const modalArea = document.getElementById('modal-area');
             const newModalHTML = window.app.renderAllModals();
-            // Simple optimization: only update innerHTML if it actually changed (prevents focus loss if strict check needed, but input fields are handled separately)
             if (modalArea.innerHTML !== newModalHTML) {
                 modalArea.innerHTML = newModalHTML;
                 lucide.createIcons({ root: modalArea });
@@ -588,7 +609,6 @@
             lucide.createIcons({ root: document.getElementById('confirm-modal-area') });
         }
 
-        // --- Original Logic Helpers (Unchanged Logic, just function bodies) ---
         window.app.renderDashboardOriginal = function() {
             const { transactions, wallets, expense, income } = state.data;
             const filter = state.dashboardFilter;
@@ -618,21 +638,21 @@
             const budgetData = expense.map(cat => { const spent = expenseByCategory[cat.id] || 0; const budget = cat.budget || 0; return { ...cat, spent, remaining: budget - spent, percent: budget > 0 ? (spent / budget) * 100 : 0 }; }).sort((a, b) => b.percent - a.percent);
             const totalBudget = budgetData.reduce((sum, item) => sum + (item.budget || 0), 0); const totalBudgetSpent = budgetData.reduce((sum, item) => sum + item.spent, 0); const totalBudgetPercent = totalBudget > 0 ? (totalBudgetSpent / totalBudget) * 100 : 0;
             const topCategories = budgetData.slice(0, 5).filter(c => c.spent > 0); const topExpenses = filteredTx.filter(tx => tx.type === 'expense' && !tx.isDebtPayment).sort((a, b) => b.amount - a.amount).slice(0, 5);
-            const btnClass = (active) => `px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${active ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`;
+            const btnClass = (active) => `px-4 py-2 rounded-xl text-xs font-bold border transition-all ${active ? 'bg-slate-800 text-white border-slate-800 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-800'}`;
             return `
-                <div class="space-y-6">
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                        <div class="flex flex-col lg:flex-row gap-4 justify-between items-start">
-                            <div class="space-y-3 w-full lg:w-auto">
+                <div class="space-y-8">
+                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100/60">
+                        <div class="flex flex-col xl:flex-row gap-5 justify-between items-start xl:items-center">
+                            <div class="space-y-3 w-full xl:w-auto">
                                 <div class="flex flex-wrap gap-2 items-center">
                                     <button onclick="app.setDashboardFilter('periodMode', 'monthly')" class="${btnClass(filter.periodMode === 'monthly')}">Bulanan</button>
                                     <button onclick="app.setDashboardFilter('periodMode', 'daily')" class="${btnClass(filter.periodMode === 'daily')}">Harian</button>
-                                    <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
-                                        <input type="date" value="${filter.startDate}" onchange="app.setDashboardFilter('startDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none">
-                                        <span class="text-slate-400 text-xs font-bold">-</span>
-                                        <input type="date" value="${filter.endDate}" onchange="app.setDashboardFilter('endDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none">
+                                    <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                                        <input type="date" value="${filter.startDate}" onchange="app.setDashboardFilter('startDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer">
+                                        <span class="text-slate-300 font-bold">-</span>
+                                        <input type="date" value="${filter.endDate}" onchange="app.setDashboardFilter('endDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer">
                                     </div>
-                                    <button onclick="app.resetDashboardFilter()" class="px-3 py-1.5 rounded-lg text-xs font-bold border border-rose-100 text-rose-600 bg-rose-50 hover:bg-rose-100 flex items-center gap-1"><i data-lucide="refresh-cw" width="12"></i> Reset</button>
+                                    <button onclick="app.resetDashboardFilter()" class="px-4 py-2 rounded-xl text-xs font-bold border border-rose-100 text-rose-600 bg-rose-50 hover:bg-rose-100 flex items-center gap-2 transition-colors"><i data-lucide="refresh-cw" width="14"></i> Reset</button>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
                                     <button onclick="app.setDashboardFilter('type', 'all')" class="${btnClass(filter.type === 'all')}">Semua</button>
@@ -641,58 +661,81 @@
                                     <button onclick="app.setDashboardFilter('type', 'debt')" class="${btnClass(filter.type === 'debt')}">Hutang</button>
                                 </div>
                             </div>
-                            <select onchange="app.setDashboardFilter('walletId', this.value)" class="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
+                            <select onchange="app.setDashboardFilter('walletId', this.value)" class="px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer min-w-[200px]">
                                 <option value="all">Semua Dompet</option>
                                 ${wallets.map(w => `<option value="${w.id}" ${filter.walletId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
                             </select>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-slate-200">
-                            <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Saldo Bersih</p>
-                            <h3 class="text-3xl font-extrabold tracking-tight">${formatRupiah(totalAssets)}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-[2rem] text-white shadow-2xl shadow-slate-200 relative overflow-hidden">
+                            <div class="relative z-10">
+                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">Total Saldo Bersih</p>
+                                <h3 class="text-4xl font-extrabold tracking-tight">${formatRupiah(totalAssets)}</h3>
+                            </div>
+                            <div class="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4"><i data-lucide="wallet" width="120" height="120"></i></div>
                         </div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                            <div class="flex items-center gap-2 mb-2 text-emerald-600"><div class="p-1 bg-emerald-100 rounded-lg"><i data-lucide="arrow-up-right" width="16"></i></div><span class="text-xs font-bold uppercase tracking-wider">Pemasukan</span></div>
-                            <h3 class="text-2xl font-bold text-slate-800">${formatRupiah(totalIncome)}</h3>
+                        <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:border-emerald-100 transition-colors">
+                            <div class="flex items-center gap-3 mb-4 text-emerald-600">
+                                <div class="p-2 bg-emerald-50 rounded-xl group-hover:scale-110 transition-transform"><i data-lucide="arrow-up-right" width="20"></i></div>
+                                <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Pemasukan</span>
+                            </div>
+                            <h3 class="text-3xl font-bold text-slate-800">${formatRupiah(totalIncome)}</h3>
                         </div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                            <div class="flex items-center gap-2 mb-2 text-rose-600"><div class="p-1 bg-rose-100 rounded-lg"><i data-lucide="arrow-down-left" width="16"></i></div><span class="text-xs font-bold uppercase tracking-wider">Pengeluaran</span></div>
-                            <h3 class="text-2xl font-bold text-slate-800">${formatRupiah(totalExpense)}</h3>
+                        <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:border-rose-100 transition-colors">
+                            <div class="flex items-center gap-3 mb-4 text-rose-600">
+                                <div class="p-2 bg-rose-50 rounded-xl group-hover:scale-110 transition-transform"><i data-lucide="arrow-down-left" width="20"></i></div>
+                                <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Pengeluaran</span>
+                            </div>
+                            <h3 class="text-3xl font-bold text-slate-800">${formatRupiah(totalExpense)}</h3>
                         </div>
                     </div>
-                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div class="px-6 py-5 border-b border-slate-50"><h3 class="font-bold text-slate-800">Dompet & Akun</h3></div>
+                    <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="px-8 py-6 border-b border-slate-50 flex items-center gap-3">
+                            <div class="w-1 h-6 bg-blue-600 rounded-full"></div>
+                            <h3 class="font-bold text-lg text-slate-800">Dompet & Akun</h3>
+                        </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm text-left">
-                                <thead class="text-xs text-slate-400 font-bold uppercase bg-slate-50/50"><tr><th class="px-6 py-4">Nama Akun</th><th class="px-6 py-4">Tipe</th><th class="px-6 py-4 text-right">Saldo</th><th class="px-6 py-4 text-center">Aktif?</th></tr></thead>
+                                <thead class="text-xs text-slate-400 font-bold uppercase bg-slate-50/50"><tr><th class="px-8 py-5">Nama Akun</th><th class="px-8 py-5">Tipe</th><th class="px-8 py-5 text-right">Saldo</th><th class="px-8 py-5 text-center">Aktif?</th></tr></thead>
                                 <tbody class="divide-y divide-slate-50">
-                                    ${wallets.map(w => `<tr class="hover:bg-slate-50/50 transition-colors"><td class="px-6 py-4 font-bold text-slate-700 flex items-center gap-3"><div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm ${w.color}"><i data-lucide="${w.icon}" width="18"></i></div>${w.name}</td><td class="px-6 py-4"><span class="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-500 border border-slate-200">${w.type}</span></td><td class="px-6 py-4 text-right font-bold text-slate-800">${formatRupiah(walletBalances[w.id])}</td><td class="px-6 py-4 text-center"><div class="flex justify-center"><label class="checkbox-wrapper cursor-pointer relative"><input type="checkbox" ${!w.isExcluded ? 'checked' : ''} onchange="app.toggleWalletExclusion('${w.id}', this.checked)" class="sr-only"><div class="w-6 h-6 bg-slate-100 border-2 border-slate-300 rounded-lg transition-colors flex items-center justify-center"><svg class="w-4 h-4 text-white hidden fill-current" viewBox="0 0 20 20"><path d="M0 11l2-2 5 5L18 3l2 2L7 18z"/></svg></div></label></div></td></tr>`).join('')}
+                                    ${wallets.map(w => `<tr class="hover:bg-slate-50/80 transition-colors"><td class="px-8 py-5 font-bold text-slate-700 flex items-center gap-4"><div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-100 ${w.color}"><i data-lucide="${w.icon}" width="20"></i></div>${w.name}</td><td class="px-8 py-5"><span class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-bold text-slate-500 border border-slate-200">${w.type}</span></td><td class="px-8 py-5 text-right font-bold text-slate-800 text-base">${formatRupiah(walletBalances[w.id])}</td><td class="px-8 py-5 text-center"><div class="flex justify-center"><label class="checkbox-wrapper cursor-pointer relative"><input type="checkbox" ${!w.isExcluded ? 'checked' : ''} onchange="app.toggleWalletExclusion('${w.id}', this.checked)" class="sr-only"><div class="w-6 h-6 bg-slate-100 border-2 border-slate-300 rounded-lg transition-colors flex items-center justify-center"><svg class="w-4 h-4 text-white hidden fill-current" viewBox="0 0 20 20"><path d="M0 11l2-2 5 5L18 3l2 2L7 18z"/></svg></div></label></div></td></tr>`).join('')}
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-1 bg-white rounded-3xl shadow-sm border border-slate-100 h-fit">
-                            <div class="p-5 border-b border-slate-50"><h3 class="font-bold text-slate-800">Riwayat Terkini</h3></div>
-                            <div class="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
-                                ${filteredTx.length === 0 ? `<div class="p-8 text-center text-slate-400 text-sm font-medium">Belum ada data transaksi.</div>` : ''}
+                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-1 bg-white rounded-[2rem] shadow-sm border border-slate-100 h-fit flex flex-col">
+                            <div class="p-6 border-b border-slate-50 flex flex-wrap justify-between items-center gap-4">
+                                <h3 class="font-bold text-lg text-slate-800">Riwayat Terkini</h3>
+                                <div class="flex gap-2">
+                                     <button onclick="app.openTransferModal()" class="px-4 py-2 bg-slate-50 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-100 transition-colors flex items-center gap-2 border border-slate-100">
+                                        <i data-lucide="arrow-right-left" width="14"></i> Transfer
+                                    </button>
+                                    <button onclick="app.openTransactionModal()" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg shadow-blue-200 hover:-translate-y-0.5 transform">
+                                        <i data-lucide="plus" width="14"></i> Baru
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="divide-y divide-slate-50 max-h-[600px] overflow-y-auto custom-scroll">
+                                ${filteredTx.length === 0 ? `<div class="p-12 text-center text-slate-400 text-sm font-medium flex flex-col items-center"><div class="bg-slate-50 p-4 rounded-full mb-3"><i data-lucide="inbox" width="24" class="opacity-50"></i></div>Belum ada data transaksi.</div>` : ''}
                                 ${filteredTx.map(tx => {
                                     const isExpense = tx.type === 'expense'; let name = 'Transaksi', icon = 'circle', color = 'bg-slate-400';
                                     if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-500'; }
                                     else if(tx.isDebtPayment) { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check-circle'; color = isExpense ? 'bg-rose-500' : 'bg-emerald-500'; }
                                     else { const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId); if(cat) { name = cat.name; icon = cat.icon; color = cat.color; } }
-                                    return `<div class="p-4 hover:bg-slate-50 transition-colors"><div class="flex justify-between items-start mb-1"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] shadow-sm ${color}"><i data-lucide="${icon}" width="14"></i></div><span class="font-bold text-slate-700 text-sm truncate max-w-[120px]">${name}</span></div><span class="font-bold text-sm ${isExpense ? 'text-rose-600' : 'text-emerald-600'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span></div><div class="flex justify-between items-center text-[11px] text-slate-400 pl-11 font-medium"><span>${formatDate(tx.date)}</span><span class="truncate max-w-[100px]">${wallets.find(w=>w.id===tx.walletId)?.name || '-'}</span></div></div>`;
+                                    return `<div class="p-5 hover:bg-slate-50 transition-colors group cursor-default"><div class="flex justify-between items-start mb-1.5"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xs shadow-md ${color} group-hover:scale-110 transition-transform"><i data-lucide="${icon}" width="16"></i></div><span class="font-bold text-slate-700 text-sm truncate max-w-[140px]">${name}</span></div><span class="font-bold text-sm ${isExpense ? 'text-rose-600' : 'text-emerald-600'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span></div><div class="flex justify-between items-center text-[11px] text-slate-400 pl-[3.5rem] font-semibold tracking-wide"><span>${formatDate(tx.date)}</span><span class="truncate max-w-[100px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">${wallets.find(w=>w.id===tx.walletId)?.name || '-'}</span></div></div>`;
                                 }).join('')}
                             </div>
                         </div>
-                        <div class="lg:col-span-2 space-y-6">
-                            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                                <div class="flex justify-between items-end mb-4"><div><p class="text-slate-400 text-xs font-bold uppercase tracking-wider">Progress Budget</p><h3 class="text-xl font-bold text-slate-800 mt-1">${formatRupiah(totalBudgetSpent)} <span class="text-slate-400 text-sm font-medium">dari ${formatRupiah(totalBudget)}</span></h3></div><span class="text-2xl font-extrabold ${totalBudgetPercent > 100 ? 'text-rose-600' : 'text-blue-600'}">${totalBudgetPercent.toFixed(0)}%</span></div><div class="h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner"><div class="h-full ${totalBudgetPercent > 100 ? 'bg-rose-500' : 'bg-blue-600'} transition-all duration-1000 ease-out" style="width: ${Math.min(100, totalBudgetPercent)}%"></div></div>
+                        <div class="lg:col-span-2 space-y-8">
+                            <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden">
+                                <div class="flex justify-between items-end mb-6 relative z-10"><div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Penggunaan Budget</p><h3 class="text-2xl font-bold text-slate-800">${formatRupiah(totalBudgetSpent)} <span class="text-slate-400 text-base font-medium">dari ${formatRupiah(totalBudget)}</span></h3></div><span class="text-3xl font-black ${totalBudgetPercent > 100 ? 'text-rose-600' : 'text-blue-600'}">${totalBudgetPercent.toFixed(0)}%</span></div>
+                                <div class="h-6 bg-slate-100 rounded-full overflow-hidden shadow-inner relative z-10"><div class="h-full ${totalBudgetPercent > 100 ? 'bg-rose-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'} transition-all duration-1000 ease-out relative" style="width: ${Math.min(100, totalBudgetPercent)}%"><div class="absolute inset-0 bg-white/20 animate-pulse"></div></div></div>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm h-fit"><h4 class="font-bold text-slate-800 mb-5 text-sm flex items-center gap-2"><i data-lucide="list" width="16"></i> Rincian Kategori</h4><div class="space-y-5">${budgetData.length === 0 ? `<p class="text-xs text-slate-400 text-center py-4">Belum ada budget.</p>` : ''}${budgetData.map(cat => { const isOver = cat.spent > cat.budget && cat.budget > 0; const percent = Math.min(100, cat.percent); let barColor = 'bg-blue-500'; if (percent > 75) barColor = 'bg-amber-500'; if (percent >= 100) barColor = 'bg-rose-500'; return `<div><div class="flex justify-between text-xs mb-2"><span class="font-bold text-slate-700">${cat.name}</span><span class="${isOver ? 'text-rose-600 font-bold' : 'text-slate-500 font-medium'}">${Math.round(cat.percent)}%</span></div><div class="h-2 bg-slate-100 rounded-full overflow-hidden mb-1"><div class="h-full ${barColor}" style="width: ${cat.budget > 0 ? percent : 0}%"></div></div><div class="flex justify-between text-[10px] text-slate-400 font-medium"><span>Pakai: ${formatRupiah(cat.spent)}</span><span>Batas: ${formatRupiah(cat.budget)}</span></div></div>`; }).join('')}</div></div>
-                                <div class="space-y-6"><div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><h4 class="font-bold text-slate-800 mb-4 text-sm flex items-center gap-2"><i data-lucide="pie-chart" width="16" class="text-indigo-500"></i> Top Kategori</h4><div class="space-y-3">${topCategories.map(cat => `<div class="flex items-center justify-between text-xs font-medium"><div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full ${cat.color}"></div><span class="text-slate-600">${cat.name}</span></div><span class="font-bold text-slate-800">${formatRupiah(cat.amount)}</span></div>`).join('')}${topCategories.length === 0 ? `<p class="text-xs text-slate-400">Belum ada data.</p>` : ''}</div></div><div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><h4 class="font-bold text-slate-800 mb-4 text-sm flex items-center gap-2"><i data-lucide="trending-down" width="16" class="text-rose-500"></i> Pengeluaran Terbesar</h4><div class="space-y-4">${topExpenses.map(tx => { const cat = expense.find(c => c.id === tx.categoryId); return `<div class="flex items-center justify-between text-xs pb-3 border-b border-slate-50 last:border-0 last:pb-0"><div><p class="font-bold text-slate-700">${cat ? cat.name : 'Lainnya'}</p><p class="text-slate-400 text-[10px] mt-0.5">${formatDate(tx.date)}</p></div><span class="font-bold text-rose-600">${formatRupiah(tx.amount)}</span></div>`; }).join('')}${topExpenses.length === 0 ? `<p class="text-xs text-slate-400">Belum ada data.</p>` : ''}</div></div></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm h-fit"><h4 class="font-bold text-slate-800 mb-6 text-base flex items-center gap-3"><div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><i data-lucide="list" width="18"></i></div> Rincian Kategori</h4><div class="space-y-6">${budgetData.length === 0 ? `<p class="text-xs text-slate-400 text-center py-4">Belum ada budget.</p>` : ''}${budgetData.map(cat => { const isOver = cat.spent > cat.budget && cat.budget > 0; const percent = Math.min(100, cat.percent); let barColor = 'bg-blue-500'; if (percent > 75) barColor = 'bg-amber-500'; if (percent >= 100) barColor = 'bg-rose-500'; return `<div><div class="flex justify-between text-xs mb-2"><span class="font-bold text-slate-700 text-sm">${cat.name}</span><span class="${isOver ? 'text-rose-600 font-bold' : 'text-slate-500 font-medium'}">${Math.round(cat.percent)}%</span></div><div class="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-1.5"><div class="h-full ${barColor}" style="width: ${cat.budget > 0 ? percent : 0}%"></div></div><div class="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider"><span>Pakai: ${formatRupiah(cat.spent)}</span><span>Batas: ${formatRupiah(cat.budget)}</span></div></div>`; }).join('')}</div></div>
+                                <div class="space-y-8"><div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm"><h4 class="font-bold text-slate-800 mb-6 text-base flex items-center gap-3"><div class="p-2 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="pie-chart" width="18"></i></div> Top Kategori</h4><div class="space-y-4">${topCategories.map(cat => `<div class="flex items-center justify-between text-xs font-medium"><div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full ${cat.color} shadow-sm ring-2 ring-white"></div><span class="text-slate-600 font-bold text-sm">${cat.name}</span></div><span class="font-bold text-slate-800 text-sm">${formatRupiah(cat.amount)}</span></div>`).join('')}${topCategories.length === 0 ? `<p class="text-xs text-slate-400">Belum ada data.</p>` : ''}</div></div><div class="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm"><h4 class="font-bold text-slate-800 mb-6 text-base flex items-center gap-3"><div class="p-2 bg-rose-50 text-rose-600 rounded-lg"><i data-lucide="trending-down" width="18"></i></div> Pengeluaran Terbesar</h4><div class="space-y-5">${topExpenses.map(tx => { const cat = expense.find(c => c.id === tx.categoryId); return `<div class="flex items-center justify-between text-xs pb-4 border-b border-slate-50 last:border-0 last:pb-0"><div><p class="font-bold text-slate-700 text-sm">${cat ? cat.name : 'Lainnya'}</p><p class="text-slate-400 text-[10px] mt-1 font-medium bg-slate-50 w-fit px-2 py-0.5 rounded">${formatDate(tx.date)}</p></div><span class="font-bold text-rose-600 text-sm">${formatRupiah(tx.amount)}</span></div>`; }).join('')}${topExpenses.length === 0 ? `<p class="text-xs text-slate-400">Belum ada data.</p>` : ''}</div></div></div>
                             </div>
                         </div>
                     </div>
@@ -702,20 +745,20 @@
             const { settingsTab, data } = state; const currentData = data[settingsTab] || [];
             let title = settingsTab === 'expense' ? "Kategori Pengeluaran" : settingsTab === 'income' ? "Kategori Pemasukan" : "Sumber Dana";
             return `
-                <div class="space-y-6">
-                    <div class="flex justify-center bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mx-auto mb-8">
-                        <button onclick="app.setSettingsTab('expense')" class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${settingsTab === 'expense' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Pengeluaran</button>
-                        <button onclick="app.setSettingsTab('income')" class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${settingsTab === 'income' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Pemasukan</button>
-                        <button onclick="app.setSettingsTab('wallets')" class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${settingsTab === 'wallets' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Dompet</button>
+                <div class="space-y-8 animate-fade-in">
+                    <div class="flex justify-center bg-white p-2 rounded-[1.5rem] border border-slate-200 shadow-sm w-fit mx-auto">
+                        <button onclick="app.setSettingsTab('expense')" class="px-8 py-3 rounded-xl text-sm font-bold transition-all ${settingsTab === 'expense' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Pengeluaran</button>
+                        <button onclick="app.setSettingsTab('income')" class="px-8 py-3 rounded-xl text-sm font-bold transition-all ${settingsTab === 'income' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Pemasukan</button>
+                        <button onclick="app.setSettingsTab('wallets')" class="px-8 py-3 rounded-xl text-sm font-bold transition-all ${settingsTab === 'wallets' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Dompet</button>
                     </div>
-                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div class="p-6 border-b border-slate-50 flex justify-between items-center">
-                            <h2 class="text-xl font-bold text-slate-800">${title}</h2>
-                            <button onclick="app.openSettingsModal('add')" class="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-200 transition-transform hover:-translate-y-0.5"><i data-lucide="plus" width="18"></i> Tambah</button>
+                    <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-8 border-b border-slate-50 flex justify-between items-center">
+                            <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
+                            <button onclick="app.openSettingsModal('add')" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-200 transition-transform hover:-translate-y-0.5"><i data-lucide="plus" width="20"></i> Tambah</button>
                         </div>
                         <div class="divide-y divide-slate-50">
-                            ${currentData.length === 0 ? `<div class="p-12 text-center text-slate-400">Belum ada data.</div>` : ''}
-                            ${currentData.map(item => `<div class="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group"><div class="flex items-center gap-5"><div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md ${item.color}"><i data-lucide="${item.icon}"></i></div><div><h4 class="font-bold text-slate-800 text-lg">${item.name}</h4><div class="text-xs font-medium text-slate-500 mt-1">${settingsTab === 'wallets' ? `Saldo Awal: ${formatRupiah(item.initialBalance)}` : `Budget: ${item.budget ? formatRupiah(item.budget) : '-'}`}</div></div></div><div class="flex gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity"><button onclick="app.openSettingsModal('edit', '${item.id}')" class="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"><i data-lucide="edit-2" width="18"></i></button><button onclick="app.deleteSettingsItem('${item.id}')" class="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"><i data-lucide="trash-2" width="18"></i></button></div></div>`).join('')}
+                            ${currentData.length === 0 ? `<div class="p-16 text-center text-slate-400">Belum ada data.</div>` : ''}
+                            ${currentData.map(item => `<div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors group"><div class="flex items-center gap-6"><div class="w-14 h-14 rounded-3xl flex items-center justify-center text-white shadow-lg ${item.color} transform group-hover:scale-105 transition-transform"><i data-lucide="${item.icon}" width="24"></i></div><div><h4 class="font-bold text-slate-800 text-lg">${item.name}</h4><div class="text-xs font-semibold text-slate-400 mt-1 bg-slate-100 px-3 py-1 rounded-lg w-fit border border-slate-200">${settingsTab === 'wallets' ? `Saldo Awal: ${formatRupiah(item.initialBalance)}` : `Budget: ${item.budget ? formatRupiah(item.budget) : '-'}`}</div></div></div><div class="flex gap-3 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all"><button onclick="app.openSettingsModal('edit', '${item.id}')" class="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors border border-transparent hover:border-blue-100"><i data-lucide="edit-2" width="20"></i></button><button onclick="app.deleteSettingsItem('${item.id}')" class="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-100"><i data-lucide="trash-2" width="20"></i></button></div></div>`).join('')}
                         </div>
                     </div>
                 </div>`;
@@ -723,26 +766,12 @@
         window.app.renderDebtsGrouped = function() {
             const { debts } = state.data; const expandedPerson = state.expandedPerson; const grouped = {}; debts.forEach(debt => { const rawName = debt.person.trim(); const personKey = rawName.toLowerCase(); if (!grouped[personKey]) { grouped[personKey] = { name: rawName, items: [], totalPayable: 0, totalReceivable: 0 }; } grouped[personKey].items.push(debt); const remaining = debt.amount - (debt.paidAmount || 0); if (remaining > 0) { if (debt.type === 'payable') { grouped[personKey].totalPayable += remaining; } else { grouped[personKey].totalReceivable += remaining; } } });
             const groupedList = Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name)); const grandTotalPayable = groupedList.reduce((sum, g) => sum + g.totalPayable, 0); const grandTotalReceivable = groupedList.reduce((sum, g) => sum + g.totalReceivable, 0);
-            return `<div class="space-y-8 animate-fade-in"><div class="grid grid-cols-1 md:grid-cols-2 gap-5"><div class="bg-rose-500 p-8 rounded-[2rem] text-white shadow-xl shadow-rose-200 relative overflow-hidden"><div class="relative z-10"><p class="text-rose-100 text-sm font-bold uppercase tracking-wider mb-2">Total Hutang Anda</p><h3 class="text-4xl font-extrabold tracking-tight">${formatRupiah(grandTotalPayable)}</h3></div><i data-lucide="arrow-up-right" class="absolute right-[-10px] bottom-[-10px] text-white/10 w-32 h-32"></i></div><div class="bg-emerald-500 p-8 rounded-[2rem] text-white shadow-xl shadow-emerald-200 relative overflow-hidden"><div class="relative z-10"><p class="text-emerald-100 text-sm font-bold uppercase tracking-wider mb-2">Total Piutang (Milik Anda)</p><h3 class="text-4xl font-extrabold tracking-tight">${formatRupiah(grandTotalReceivable)}</h3></div><i data-lucide="arrow-down-left" class="absolute right-[-10px] bottom-[-10px] text-white/10 w-32 h-32"></i></div></div><div class="flex flex-col sm:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-100 shadow-sm gap-4"><div><h2 class="text-xl font-bold text-slate-800">Daftar Kontak</h2><p class="text-slate-400 text-xs font-medium">Klik nama untuk melihat rincian.</p></div><button onclick="app.openDebtModal()" class="px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 flex items-center gap-2 text-sm font-bold shadow-lg shadow-slate-200 transition-all hover:-translate-y-0.5"><i data-lucide="plus" width="18"></i> Catat Baru</button></div><div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">${groupedList.length === 0 ? `<div class="p-16 text-center text-slate-400 flex flex-col items-center col-span-full"><i data-lucide="users" width="64" class="mb-4 opacity-20"></i><p class="font-medium">Belum ada catatan hutang piutang.</p></div>` : ''}${groupedList.map(group => { const isExpanded = expandedPerson === group.name; const hasPayable = group.totalPayable > 0; const hasReceivable = group.totalReceivable > 0; const isPaidOff = !hasPayable && !hasReceivable; let badgeHtml = ''; if (isPaidOff) badgeHtml = `<span class="bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-full">LUNAS</span>`; else { if (hasPayable) badgeHtml += `<span class="bg-rose-50 text-rose-600 text-[10px] font-bold px-2.5 py-1 rounded-full border border-rose-100">Hutang: ${formatRupiah(group.totalPayable)}</span>`; if (hasReceivable) badgeHtml += `<span class="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-100 ml-1">Piutang: ${formatRupiah(group.totalReceivable)}</span>`; } 
-            const safeName = group.name.replace(/'/g, "\\'");
-            return `<div class="bg-white rounded-3xl border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-blue-200 group ${isExpanded ? 'shadow-lg ring-2 ring-blue-500/10' : ''}"><button onclick="app.toggleExpandPerson('${safeName}')" class="w-full p-5 flex items-center justify-between text-left focus:outline-none bg-white"><div class="flex items-center gap-4"><div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center font-extrabold text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">${group.name.charAt(0).toUpperCase()}</div><div><h4 class="font-bold text-slate-800 text-lg">${group.name}</h4><div class="flex items-center mt-1.5 gap-1 flex-wrap">${badgeHtml}</div></div></div><div class="text-slate-300 group-hover:text-blue-500 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"><i data-lucide="chevron-down" width="24"></i></div></button>${isExpanded ? `<div class="border-t border-slate-100 bg-slate-50 p-3 space-y-3 animate-slide-down">${group.items.map(item => { const isPayable = item.type === 'payable'; const paid = item.paidAmount || 0; const total = item.amount; const remaining = total - paid; const isItemPaid = remaining <= 0; return `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isPayable ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">${isPayable ? 'HUTANG' : 'PIUTANG'}</span><span class="text-[10px] font-bold text-slate-400">${formatDate(item.date)}</span>${item.isOldDebt ? `<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 rounded font-bold">LAMA</span>` : ''}</div><p class="text-xs text-slate-600 font-medium line-clamp-2 leading-relaxed">${item.notes || 'Tanpa catatan'}</p></div><div class="text-right"><p class="font-extrabold text-base text-slate-800">${formatRupiah(total)}</p>${isItemPaid ? `<span class="text-[10px] text-emerald-600 font-bold flex items-center justify-end gap-1 bg-emerald-50 px-2 py-0.5 rounded-full mt-1 w-fit ml-auto"><i data-lucide="check-circle" width="10"></i> Lunas</span>` : `<p class="text-[10px] text-slate-400 font-medium mt-1">Sisa: <span class="font-bold text-slate-800">${formatRupiah(remaining)}</span></p>`}</div></div><div class="flex items-center gap-3 pt-2 border-t border-slate-50"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-full ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${(paid/total)*100}%"></div></div><div class="flex gap-2">${!isItemPaid ? `<button onclick="app.openPayDebtModal('${item.id}')" class="px-3 py-1.5 bg-slate-800 text-white text-[10px] font-bold rounded-lg hover:bg-slate-900 shadow-lg shadow-slate-200">${isPayable ? 'Bayar' : 'Terima'}</button>` : ''}<button onclick="app.deleteDebt('${item.id}')" class="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><i data-lucide="trash-2" width="16"></i></button></div></div></div>`; }).join('')}</div>` : ''}</div>`; }).join('')}</div></div>`;
+            return `<div class="space-y-8 animate-fade-in"><div class="flex flex-col md:flex-row justify-between items-center bg-gradient-to-br from-indigo-900 to-slate-900 p-10 rounded-[2.5rem] shadow-2xl shadow-indigo-200/50 text-white relative overflow-hidden gap-6"><div class="relative z-10 text-center md:text-left"><h2 class="text-3xl font-extrabold tracking-tight mb-2">Hutang & Piutang</h2><p class="text-indigo-200 text-sm font-medium">Kelola kewajiban dan hak keuangan Anda dengan mudah.</p></div><div class="relative z-10"><button onclick="app.openDebtModal()" class="px-8 py-4 bg-white text-indigo-900 rounded-2xl hover:bg-indigo-50 flex items-center gap-3 text-sm font-bold shadow-xl transition-all transform hover:-translate-y-1"><i data-lucide="plus" width="20"></i> Catat Baru</button></div><div class="absolute right-0 top-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div><div class="absolute left-0 bottom-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="bg-white p-8 rounded-[2rem] border border-rose-100 shadow-sm relative overflow-hidden"><div class="flex items-center gap-3 mb-2"><div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center"><i data-lucide="arrow-up-right" width="16"></i></div><p class="text-rose-600 text-xs font-bold uppercase tracking-widest">Total Hutang Anda</p></div><h3 class="text-4xl font-black text-slate-800 tracking-tight">${formatRupiah(grandTotalPayable)}</h3></div><div class="bg-white p-8 rounded-[2rem] border border-emerald-100 shadow-sm relative overflow-hidden"><div class="flex items-center gap-3 mb-2"><div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center"><i data-lucide="arrow-down-left" width="16"></i></div><p class="text-emerald-600 text-xs font-bold uppercase tracking-widest">Total Piutang Anda</p></div><h3 class="text-4xl font-black text-slate-800 tracking-tight">${formatRupiah(grandTotalReceivable)}</h3></div></div><div class="flex items-center gap-4 my-4"><div class="h-px bg-slate-200 flex-1"></div><span class="text-slate-400 text-xs font-bold uppercase tracking-widest">Daftar Kontak</span><div class="h-px bg-slate-200 flex-1"></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-6">${groupedList.length === 0 ? `<div class="p-16 text-center text-slate-400 flex flex-col items-center col-span-full bg-white rounded-[2rem] border border-slate-100 border-dashed"><i data-lucide="users" width="48" class="mb-4 opacity-20"></i><p class="font-medium">Belum ada catatan.</p></div>` : ''}${groupedList.map(group => { const hasPayable = group.totalPayable > 0; const hasReceivable = group.totalReceivable > 0; const isPaidOff = !hasPayable && !hasReceivable; const safeId = group.name.replace(/[^a-zA-Z0-9]/g, '_'); const safeName = group.name.replace(/'/g, "\\'"); 
+            // Use state.expandedPerson just for initial render state, but toggle via JS
+            const isExpanded = state.expandedPerson === group.name;
+            let badgeHtml = ''; if (isPaidOff) badgeHtml = `<span class="bg-slate-100 text-slate-500 text-[10px] font-bold px-3 py-1 rounded-full border border-slate-200">LUNAS</span>`; else { if (hasPayable) badgeHtml += `<span class="bg-rose-50 text-rose-600 text-[10px] font-bold px-3 py-1 rounded-full border border-rose-100">Hutang: ${formatRupiah(group.totalPayable)}</span>`; if (hasReceivable) badgeHtml += `<span class="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-3 py-1 rounded-full border border-emerald-100 ml-1">Piutang: ${formatRupiah(group.totalReceivable)}</span>`; } 
+            return `<div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden transition-all hover:shadow-md group"><button onclick="app.toggleExpandPerson('${safeName}')" class="w-full p-6 flex items-center justify-between text-left focus:outline-none bg-white relative z-10"><div class="flex items-center gap-5"><div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 flex items-center justify-center font-extrabold text-xl group-hover:from-blue-600 group-hover:to-indigo-600 group-hover:text-white transition-all shadow-inner group-hover:shadow-lg group-hover:shadow-blue-200">${group.name.charAt(0).toUpperCase()}</div><div><h4 class="font-bold text-slate-800 text-lg">${group.name}</h4><div class="flex items-center mt-2 gap-2 flex-wrap">${badgeHtml}</div></div></div><div id="icon-${safeId}" class="text-slate-300 group-hover:text-blue-500 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"><i data-lucide="chevron-down" width="24"></i></div></button><div id="details-${safeId}" class="grid transition-all duration-300 ${isExpanded ? 'grid-rows-1' : 'grid-rows-0'}"><div class="overflow-hidden"><div class="border-t border-slate-50 bg-slate-50/50 p-4 space-y-3">${group.items.map(item => { const isPayable = item.type === 'payable'; const paid = item.paidAmount || 0; const total = item.amount; const remaining = total - paid; const isItemPaid = remaining <= 0; return `<div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4 relative overflow-hidden"><div class="absolute left-0 top-0 bottom-0 w-1 ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}"></div><div class="flex justify-between items-start pl-3"><div><div class="flex items-center gap-2 mb-2"><span class="text-[10px] font-bold px-2 py-0.5 rounded text-white ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'} tracking-wide">${isPayable ? 'HUTANG' : 'PIUTANG'}</span><span class="text-[10px] font-bold text-slate-400 flex items-center gap-1"><i data-lucide="calendar" width="10"></i> ${formatDate(item.date)}</span>${item.isOldDebt ? `<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 rounded font-bold border border-amber-200">LAMA</span>` : ''}</div><p class="text-xs text-slate-600 font-medium leading-relaxed italic">"${item.notes || 'Tanpa catatan'}"</p></div><div class="text-right"><p class="font-extrabold text-base text-slate-800">${formatRupiah(total)}</p>${isItemPaid ? `<span class="text-[10px] text-emerald-600 font-bold flex items-center justify-end gap-1 bg-emerald-50 px-2 py-0.5 rounded-full mt-1 w-fit ml-auto border border-emerald-100"><i data-lucide="check-circle" width="10"></i> Lunas</span>` : `<p class="text-[10px] text-slate-400 font-medium mt-1">Sisa: <span class="font-bold text-slate-800">${formatRupiah(remaining)}</span></p>`}</div></div><div class="flex items-center gap-4 pt-2 pl-3"><div class="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner"><div class="h-full ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${(paid/total)*100}%"></div></div><div class="flex gap-2">${!isItemPaid ? `<button onclick="app.openPayDebtModal('${item.id}')" class="px-4 py-2 bg-slate-800 text-white text-[10px] font-bold rounded-lg hover:bg-slate-900 shadow-lg shadow-slate-200 transition-transform hover:-translate-y-0.5">${isPayable ? 'Bayar' : 'Terima'}</button>` : ''}<button onclick="app.deleteDebt('${item.id}')" class="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><i data-lucide="trash-2" width="16"></i></button></div></div></div>`; }).join('')}</div></div></div></div>`; }).join('')}</div></div>`;
         };
-        window.app.renderTransactionsOriginal = function() {
-            const { transactions, wallets, expense, income, filter } = state.data; const currentFilter = state.filter;
-            const filteredTransactions = state.data.transactions.filter(tx => {
-                if (currentFilter.startDate && tx.date < currentFilter.startDate) return false;
-                if (currentFilter.endDate && tx.date > currentFilter.endDate) return false;
-                if (currentFilter.type === 'all') return true;
-                if (currentFilter.type === 'debt') return tx.isDebtPayment;
-                if (currentFilter.type === 'expense') return tx.type === 'expense' && !tx.isDebtPayment;
-                if (currentFilter.type === 'income') return tx.type === 'income' && !tx.isDebtPayment;
-                if (currentFilter.type === 'transfer') return tx.type === 'transfer';
-                return true;
-            });
-            const filterBtnClass = (type) => `px-4 py-2 rounded-xl text-xs font-bold border transition-all ${currentFilter.type === type ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-800'}`;
-            return `<div class="space-y-6 animate-fade-in"><div class="flex flex-col md:flex-row justify-between items-center bg-blue-600 p-8 rounded-[2rem] shadow-xl shadow-blue-200 text-white relative overflow-hidden gap-6"><div class="relative z-10 text-center md:text-left"><h2 class="text-3xl font-extrabold tracking-tight">Transaksi</h2><p class="text-blue-100 text-sm mt-1 font-medium">Kelola arus kas masuk dan keluar Anda.</p></div><div class="relative z-10 flex gap-3 w-full md:w-auto"><button onclick="app.openTransferModal()" class="flex-1 md:flex-none px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border border-white/20"><i data-lucide="arrow-right-left" width="18"></i> Transfer</button><button onclick="app.openTransactionModal()" class="flex-1 md:flex-none px-6 py-3 bg-white text-blue-600 rounded-xl text-sm font-bold shadow-lg hover:bg-blue-50 transition-all flex items-center justify-center gap-2"><i data-lucide="plus" width="20"></i> Baru</button></div><div class="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div></div><div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-5"><div class="flex flex-col xl:flex-row gap-5 justify-between items-start xl:items-center"><div class="flex flex-wrap gap-2 w-full">${['all', 'expense', 'income', 'transfer', 'debt'].map(t => `<button onclick="app.setTxFilter('type', '${t}')" class="${filterBtnClass(t)}">${t === 'all' ? 'Semua' : t === 'expense' ? 'Keluar' : t === 'income' ? 'Masuk' : t === 'debt' ? 'Hutang' : 'Transfer'}</button>`).join('')}</div><div class="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 w-full xl:w-auto justify-between"><input type="date" value="${currentFilter.startDate}" onchange="app.setTxFilter('startDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer p-1"><span class="text-slate-300 font-bold">-</span><input type="date" value="${currentFilter.endDate}" onchange="app.setTxFilter('endDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer p-1"></div></div></div><div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden"><div class="p-6 border-b border-slate-50 flex justify-between items-center"><h3 class="font-bold text-slate-800">Riwayat</h3><span class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">${filteredTransactions.length} Data</span></div><div class="divide-y divide-slate-50">${filteredTransactions.length === 0 ? `<div class="p-16 text-center text-slate-400 flex flex-col items-center"><div class="bg-slate-50 p-4 rounded-full mb-4"><i data-lucide="filter-x" width="32" class="opacity-50"></i></div><p class="font-medium">Tidak ada transaksi sesuai filter ini.</p></div>` : ''}${filteredTransactions.map(tx => { let icon, color, title, subtitle, amountColor, amountPrefix; const wallets = state.data.wallets; const expense = state.data.expense; const income = state.data.income; if (tx.type === 'transfer') { icon = 'arrow-right-left'; color = 'bg-slate-500'; const fromWallet = wallets.find(w => w.id === tx.fromWalletId)?.name || 'Unknown'; const toWallet = wallets.find(w => w.id === tx.toWalletId)?.name || 'Unknown'; title = 'Transfer Aset'; subtitle = `${fromWallet} &rarr; ${toWallet}`; amountColor = 'text-slate-800'; amountPrefix = ''; } else { const isExpense = tx.type === 'expense'; const wallet = wallets.find(w => w.id === tx.walletId)?.name || 'Unknown'; amountColor = isExpense ? 'text-rose-600' : 'text-emerald-600'; amountPrefix = isExpense ? '- ' : '+ '; if (tx.isDebtPayment) { icon = isExpense ? 'check-circle' : 'thumbs-up'; color = isExpense ? 'bg-rose-500' : 'bg-emerald-500'; title = tx.type === 'expense' ? 'Bayar Hutang' : 'Terima Piutang'; } else { const category = (isExpense ? expense : income).find(c => c.id === tx.categoryId); icon = category?.icon || 'help-circle'; color = category?.color || 'bg-slate-400'; title = category?.name || 'Kategori Terhapus'; } subtitle = `${wallet} ${tx.notes ? '• <span class="text-slate-400 italic">' + tx.notes + '</span>' : ''}`; } return `<div class="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group"><div class="flex items-center gap-5"><div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-sm shadow-md ${color} flex-shrink-0 group-hover:scale-110 transition-transform"><i data-lucide="${icon}" width="20"></i></div><div class="min-w-0"><h4 class="font-bold text-slate-800 truncate text-base">${title}</h4><p class="text-xs text-slate-500 mt-1 truncate font-medium">${formatDate(tx.date)} &bull; ${subtitle}</p></div></div><div class="font-extrabold ${amountColor} whitespace-nowrap ml-4 text-base tracking-tight">${amountPrefix}${formatRupiah(tx.amount)}</div></div>`; }).join('')}</div></div></div>`;
-        };
-        
         window.app.renderSettingsModalOriginalHTML = function() { const {editingItem,settingsTab,settingsForm}=state; const isWallet=settingsTab==='wallets'; const displayBudget=settingsForm.budget?formatNumberString(String(settingsForm.budget)):''; const displayBalance=settingsForm.initialBalance?formatNumberString(String(settingsForm.initialBalance)):''; return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur z-10"><h3 class="font-extrabold text-xl text-slate-800">${editingItem?'Edit':'Tambah'} ${isWallet?'Dompet':'Kategori'}</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="20"></i></button></div><form onsubmit="app.submitSettings(event)" class="p-6 space-y-6"><div><label class="label-text">Nama</label><input required type="text" id="input-name" value="${settingsForm.name}" oninput="app.updateForm('settingsForm','name',this.value)" class="input-field" placeholder="Contoh: Belanja Bulanan"></div>${isWallet?`<div><label class="label-text">Tipe Akun</label><div class="grid grid-cols-3 gap-3">${['Cash','Bank','E-Wallet'].map(t=>`<button type="button" onclick="app.updateForm('settingsForm','type','${t}')" class="btn-option ${settingsForm.type===t?'active':''}">${t}</button>`).join('')}</div></div><div><label class="label-text">Saldo Awal</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBalance}" oninput="app.handleNumberInput('settingsForm','initialBalance',this)" class="input-field pl-12" placeholder="0"></div></div>`:`<div><label class="label-text">Budget (Anggaran)</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBudget}" oninput="app.handleNumberInput('settingsForm','budget',this)" class="input-field pl-12" placeholder="0"></div><p class="text-[10px] text-slate-400 mt-1">Biarkan 0 jika tidak ada budget.</p></div>`}<div><label class="label-text">Pilih Warna</label><div class="flex flex-wrap gap-3">${colorOptions.map(c=>`<button type="button" onclick="app.updateForm('settingsForm','color','${c}')" class="w-9 h-9 rounded-full ${c} ${settingsForm.color===c?'ring-4 ring-slate-200 scale-110 shadow-lg':''} transition-all"></button>`).join('')}</div></div><div><label class="label-text">Pilih Ikon</label><div class="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto pr-2 custom-scroll bg-slate-50 p-3 rounded-xl border border-slate-100">${iconOptions.map(i=>`<button type="button" onclick="app.updateForm('settingsForm','icon','${i}')" class="p-2.5 rounded-xl flex justify-center transition-all ${settingsForm.icon===i?'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-105':'bg-white text-slate-400 hover:bg-slate-200'}"><i data-lucide="${i}" width="20"></i></button>`).join('')}</div></div><button type="submit" class="w-full btn-primary mt-4">Simpan Perubahan</button></form></div></div>`; };
         window.app.renderTxModalOriginalHTML = function() { const {txForm,data}=state; const isExpense=txForm.type==='expense'; const categories=isExpense?data.expense:data.income; const displayAmount=txForm.amount?formatNumberString(String(txForm.amount)):''; return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur z-10"><h3 class="font-extrabold text-xl text-slate-800">Catat Transaksi</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="20"></i></button></div><form onsubmit="app.submitTransaction(event)" class="p-6 space-y-6"><div class="bg-slate-100 p-1.5 rounded-2xl flex"><button type="button" onclick="app.setTxType('expense')" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${isExpense?'bg-white text-rose-600 shadow-md':'text-slate-500 hover:text-slate-700'}">Pengeluaran</button><button type="button" onclick="app.setTxType('income')" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${!isExpense?'bg-white text-emerald-600 shadow-md':'text-slate-500 hover:text-slate-700'}">Pemasukan</button></div><div><label class="label-text">Tanggal</label><input type="date" value="${txForm.date}" onchange="app.updateForm('txForm','date',this.value)" class="input-field"></div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-3">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('txForm','amount',this)" class="input-field pl-12 text-2xl font-bold ${isExpense?'text-rose-600':'text-emerald-600'}" placeholder="0" autofocus></div></div><div><label class="label-text">Dompet Sumber</label>${data.wallets.length===0?`<p class="text-xs text-rose-500 font-bold bg-rose-50 p-3 rounded-xl">Buat dompet dulu di pengaturan.</p>`:`<div class="grid grid-cols-2 gap-3">${data.wallets.map(w=>`<button type="button" onclick="app.setTxWallet('${w.id}')" class="p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${txForm.walletId===w.id?'bg-blue-50 border-blue-500 ring-2 ring-blue-200':'bg-white border-slate-200 hover:bg-slate-50'}"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs ${w.color||'bg-slate-400'} shadow-sm"><i data-lucide="${w.icon||'wallet'}" width="16"></i></div><span class="text-sm font-bold text-slate-700 truncate">${w.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text mb-3 block">Kategori</label>${categories.length===0?`<p class="text-sm text-rose-500 bg-rose-50 p-4 rounded-xl font-medium text-center border border-rose-100">Belum ada kategori. Tambahkan di menu Pengaturan.</p>`:`<div class="grid grid-cols-4 gap-3 max-h-56 overflow-y-auto pr-1 custom-scroll">${categories.map(cat=>`<button type="button" onclick="app.selectCategory('${cat.id}')" class="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all border ${txForm.categoryId===cat.id?'bg-blue-50 border-blue-500 ring-2 ring-blue-200 shadow-md':'bg-white border-slate-100 hover:bg-slate-50'}"><div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs ${cat.color} shadow-sm"><i data-lucide="${cat.icon}" width="18"></i></div><span class="text-[10px] font-bold text-slate-600 truncate w-full text-center leading-tight">${cat.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text">Catatan (Opsional)</label><textarea id="input-notes" rows="2" oninput="app.updateForm('txForm','notes',this.value)" class="input-field resize-none" placeholder="Tulis keterangan...">${txForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-4 text-lg shadow-blue-200">Simpan</button></form></div></div>`; };
         window.app.renderTransferModalOriginalHTML = function() { const {transferForm,data}=state; const displayAmount=transferForm.amount?formatNumberString(String(transferForm.amount)):''; return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex items-center justify-between bg-white/90 backdrop-blur rounded-t-[2rem]"><h3 class="font-extrabold text-xl text-slate-800">Transfer Aset</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="20"></i></button></div><form onsubmit="app.submitTransfer(event)" class="p-6 space-y-6"><div><label class="label-text">Tanggal</label><input type="date" value="${transferForm.date}" onchange="app.updateForm('transferForm','date',this.value)" class="input-field"></div><div><label class="label-text mb-2">Dari (Sumber)</label><div class="grid grid-cols-2 gap-3">${data.wallets.map(w=>`<button type="button" onclick="app.setTransferWallet('fromWalletId','${w.id}')" class="p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${transferForm.fromWalletId===w.id?'bg-rose-50 border-rose-500 ring-2 ring-rose-200':'bg-white border-slate-200 hover:bg-slate-50'}"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs ${w.color||'bg-slate-400'}"><i data-lucide="${w.icon||'wallet'}" width="16"></i></div><span class="text-sm font-bold truncate text-slate-700">${w.name}</span></button>`).join('')}</div></div><div class="flex justify-center -my-4 relative z-10"><div class="bg-slate-100 p-2.5 rounded-full text-slate-400 border-4 border-white"><i data-lucide="arrow-down" width="20"></i></div></div><div><label class="label-text mb-2">Ke (Tujuan)</label><div class="grid grid-cols-2 gap-3">${data.wallets.map(w=>`<button type="button" onclick="app.setTransferWallet('toWalletId','${w.id}')" class="p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${transferForm.toWalletId===w.id?'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-200':'bg-white border-slate-200 hover:bg-slate-50'} ${w.id===transferForm.fromWalletId?'opacity-40 cursor-not-allowed':''}" ${w.id===transferForm.fromWalletId?'disabled':''}><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs ${w.color||'bg-slate-400'}"><i data-lucide="${w.icon||'wallet'}" width="16"></i></div><span class="text-sm font-bold truncate text-slate-700">${w.name}</span></button>`).join('')}</div></div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-3">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('transferForm','amount',this)" class="input-field pl-12 text-2xl font-bold text-slate-800" placeholder="0"></div></div><div><label class="label-text">Catatan</label><textarea id="input-notes" rows="2" oninput="app.updateForm('transferForm','notes',this.value)" class="input-field resize-none" placeholder="Keterangan transfer...">${transferForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-4">Proses Transfer</button></form></div></div>`; };
