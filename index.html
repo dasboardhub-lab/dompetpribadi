@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyKeuangan - Pencatatan Keuangan</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .animate-spin-slow { animation: spin 3s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        .checkbox-wrapper input:checked + div { background-color: #2563eb; border-color: #2563eb; }
+        .checkbox-wrapper input:checked + div svg { display: block; }
+
+        .progress-bar-bg { background-color: #f3f4f6; border-radius: 9999px; height: 0.5rem; overflow: hidden; }
+        .progress-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.5s ease-out; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 h-screen overflow-hidden">
+
+    <div id="app" class="flex h-full w-full">
+        <!-- Initial Loader -->
+        <div class="m-auto text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p class="text-gray-500">Memuat aplikasi...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDXOfZbVDqtfGB0abQkTeILo-XC6a9xxKI",
+            authDomain: "hub-dashboard-92428.firebaseapp.com",
+            projectId: "hub-dashboard-92428",
+            storageBucket: "hub-dashboard-92428.firebasestorage.app",
+            messagingSenderId: "827243064075",
+            appId: "1:827243064075:web:21b8e40b88f13b2433d00e"
+        };
+
+        const appFirebase = initializeApp(firebaseConfig);
+        const auth = getAuth(appFirebase);
+        const db = getFirestore(appFirebase);
+        const appId = 'my-finance-app-v1'; 
+
+        const colorOptions = ['bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500', 'bg-emerald-500', 'bg-teal-500', 'bg-cyan-500', 'bg-sky-500', 'bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500', 'bg-rose-500', 'bg-slate-500'];
+        const iconOptions = ['more-horizontal', 'wallet', 'banknote', 'credit-card', 'coins', 'piggy-bank', 'landmark', 'dollar-sign', 'shopping-bag', 'shopping-cart', 'utensils', 'coffee', 'beer', 'cigarette', 'car', 'bus', 'train', 'plane', 'fuel', 'map-pin', 'home', 'zap', 'droplet', 'wifi', 'phone', 'tv', 'hammer', 'wrench', 'shirt', 'scissors', 'heart-pulse', 'pill', 'baby', 'graduation-cap', 'book', 'gamepad-2', 'music', 'clapperboard', 'ticket', 'gift', 'briefcase', 'trending-up', 'percent', 'award'];
+
+        const getToday = () => new Date().toISOString().split('T')[0];
+        const getFirstDayOfMonth = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+        const getLastDayOfMonth = () => new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+
+        const state = {
+            user: null, 
+            accessCode: localStorage.getItem('finance_access_code') || null, 
+            isLoading: true, 
+            activeMenu: 'dashboard', 
+            settingsTab: 'expense', 
+            
+            isSettingsModalOpen: false, isTransactionModalOpen: false, isTransferModalOpen: false, isDebtModalOpen: false, isPayDebtModalOpen: false,
+            editingItem: null, selectedDebt: null,
+            
+            loginCodeInput: '',
+            expandedPerson: null,
+
+            // Filter Transactions
+            filter: {
+                type: 'all', 
+                startDate: getFirstDayOfMonth(),
+                endDate: getLastDayOfMonth()
+            },
+
+            // Filter Dashboard
+            dashboardFilter: {
+                type: 'all', // all, expense, income, debt, transfer
+                walletId: 'all',
+                startDate: getFirstDayOfMonth(),
+                endDate: getLastDayOfMonth(),
+                periodMode: 'monthly' // monthly, daily, custom
+            },
+
+            settingsForm: { name: '', budget: '', initialBalance: '', type: 'Cash', icon: 'more-horizontal', color: 'bg-slate-500' },
+            txForm: { type: 'expense', date: new Date().toISOString().split('T')[0], amount: '', walletId: '', categoryId: '', notes: '' },
+            transferForm: { date: new Date().toISOString().split('T')[0], amount: '', fromWalletId: '', toWalletId: '', notes: '' },
+            debtForm: { type: 'payable', person: '', amount: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', isOldDebt: false },
+            payDebtForm: { date: new Date().toISOString().split('T')[0], amount: '', walletId: '', notes: '' },
+
+            data: { expense: [], income: [], wallets: [], transactions: [], debts: [] },
+            
+            unsubscribeListeners: []
+        };
+
+        const formatNumberString = (numStr) => { const num = numStr.replace(/\D/g, ''); return num ? new Intl.NumberFormat('id-ID').format(num) : ''; };
+        const formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+        const formatDate = (dateString) => { if (!dateString) return '-'; return new Date(dateString).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); };
+        const getCollectionName = (tab) => { if (tab === 'expense') return 'expense_categories'; if (tab === 'income') return 'income_categories'; if (tab === 'wallets') return 'wallets'; if (tab === 'transactions') return 'transactions'; if (tab === 'debts') return 'debts'; return 'unknown'; };
+
+        function cleanupListeners() {
+            state.unsubscribeListeners.forEach(unsub => unsub());
+            state.unsubscribeListeners = [];
+            state.data = { expense: [], income: [], wallets: [], transactions: [], debts: [] };
+        }
+
+        function initDataListeners(code) {
+            if (!code) return;
+            cleanupListeners(); 
+            const userId = `code_${code}`; 
+
+            ['expense', 'income', 'wallets'].forEach(key => {
+                const unsub = onSnapshot(query(collection(db, 'artifacts', appId, 'users', userId, getCollectionName(key))), (snapshot) => {
+                    const items = []; snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() })); state.data[key] = items; render();
+                });
+                state.unsubscribeListeners.push(unsub);
+            });
+            const unsubTx = onSnapshot(query(collection(db, 'artifacts', appId, 'users', userId, 'transactions')), (snapshot) => {
+                const items = []; snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() })); state.data.transactions = items.sort((a, b) => new Date(b.date) - new Date(a.date)); render();
+            });
+            state.unsubscribeListeners.push(unsubTx);
+
+            const unsubDebt = onSnapshot(query(collection(db, 'artifacts', appId, 'users', userId, 'debts')), (snapshot) => {
+                const items = []; snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() })); state.data.debts = items.sort((a, b) => new Date(b.date) - new Date(a.date)); render();
+            });
+            state.unsubscribeListeners.push(unsubDebt);
+        }
+
+        window.app = {
+            handleLoginInput: (val) => {
+                state.loginCodeInput = val.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                render();
+                const el = document.getElementById('login-input');
+                if(el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+            },
+            login: (e) => {
+                e.preventDefault();
+                if (!state.loginCodeInput || state.loginCodeInput.length < 3) return alert("Kode minimal 3 karakter.");
+                state.accessCode = state.loginCodeInput;
+                localStorage.setItem('finance_access_code', state.accessCode);
+                initDataListeners(state.accessCode);
+                render();
+            },
+            
+            // --- FIX 1: LOGOUT LOGIC ---
+            logout: () => {
+                if(confirm("Yakin ingin keluar?")) {
+                    cleanupListeners();
+                    state.accessCode = null;
+                    state.loginCodeInput = '';
+                    localStorage.removeItem('finance_access_code');
+                    
+                    // Reset Menu State to default to avoid rendering issues on re-login
+                    state.activeMenu = 'dashboard';
+                    
+                    // Trigger render to show login screen
+                    render();
+                }
+            },
+
+            setMenu: (menu) => { state.activeMenu = menu; render(); },
+            setSettingsTab: (tab) => { state.settingsTab = tab; render(); },
+            toggleExpandPerson: (personName) => {
+                state.expandedPerson = state.expandedPerson === personName ? null : personName;
+                render();
+            },
+            setTxFilter: (field, value) => {
+                state.filter[field] = value;
+                render();
+            },
+            
+            // --- Dashboard Filter Logic ---
+            setDashboardFilter: (field, value) => {
+                state.dashboardFilter[field] = value;
+                if (field === 'periodMode') {
+                    if (value === 'daily') {
+                        state.dashboardFilter.startDate = getToday();
+                        state.dashboardFilter.endDate = getToday();
+                    } else if (value === 'monthly') {
+                        state.dashboardFilter.startDate = getFirstDayOfMonth();
+                        state.dashboardFilter.endDate = getLastDayOfMonth();
+                    }
+                }
+                render();
+            },
+            resetDashboardFilter: () => {
+                state.dashboardFilter = { type: 'all', walletId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' };
+                render();
+            },
+            toggleWalletExclusion: async (id, isChecked) => {
+                const isExcluded = !isChecked;
+                try {
+                    const userId = `code_${state.accessCode}`;
+                    await updateDoc(doc(db, 'artifacts', appId, 'users', userId, 'wallets', id), { isExcluded: isExcluded });
+                } catch (err) { console.error(err); }
+            },
+
+            openSettingsModal: (mode, id = null) => {
+                if (mode === 'edit' && id) {
+                    const item = state.data[state.settingsTab].find(i => i.id === id);
+                    state.editingItem = item;
+                    state.settingsForm = { name: item.name, budget: item.budget || '', initialBalance: item.initialBalance || '', type: item.type || 'Cash', icon: item.icon, color: item.color };
+                } else {
+                    state.editingItem = null;
+                    state.settingsForm = { name: '', budget: '', initialBalance: '', type: 'Cash', icon: 'more-horizontal', color: 'bg-slate-500' };
+                }
+                state.isSettingsModalOpen = true; render();
+            },
+            openTransactionModal: () => {
+                const defaultWallet = state.data.wallets.length > 0 ? state.data.wallets[0].id : '';
+                state.txForm = { type: 'expense', date: new Date().toISOString().split('T')[0], amount: '', walletId: defaultWallet, categoryId: '', notes: '' };
+                state.isTransactionModalOpen = true; render();
+            },
+            openTransferModal: () => {
+                const wallets = state.data.wallets;
+                state.transferForm = { date: new Date().toISOString().split('T')[0], amount: '', fromWalletId: wallets.length > 0 ? wallets[0].id : '', toWalletId: wallets.length > 1 ? wallets[1].id : '', notes: '' };
+                state.isTransferModalOpen = true; render();
+            },
+            openDebtModal: () => {
+                state.debtForm = { type: 'payable', person: '', amount: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', isOldDebt: false };
+                state.isDebtModalOpen = true; render();
+            },
+            openPayDebtModal: (id) => {
+                const debt = state.data.debts.find(d => d.id === id);
+                if (!debt) return;
+                const defaultWallet = state.data.wallets.length > 0 ? state.data.wallets[0].id : '';
+                const remaining = debt.amount - (debt.paidAmount || 0);
+                state.selectedDebt = debt;
+                state.payDebtForm = { date: new Date().toISOString().split('T')[0], amount: remaining, walletId: defaultWallet, notes: '' };
+                state.isPayDebtModalOpen = true; render();
+            },
+
+            closeAllModals: () => {
+                state.isSettingsModalOpen = false; state.isTransactionModalOpen = false; state.isTransferModalOpen = false; state.isDebtModalOpen = false; state.isPayDebtModalOpen = false;
+                render();
+            },
+
+            setTxType: (type) => { state.txForm.type = type; state.txForm.categoryId = ''; render(); },
+            setTxWallet: (id) => { state.txForm.walletId = id; render(); },
+            selectCategory: (id) => { state.txForm.categoryId = id; render(); },
+            setTransferWallet: (field, id) => { state.transferForm[field] = id; render(); },
+            setDebtType: (type) => { state.debtForm.type = type; render(); },
+            toggleDebtOld: (checked) => { state.debtForm.isOldDebt = checked; render(); },
+            setPayDebtWallet: (id) => { state.payDebtForm.walletId = id; render(); },
+
+            updateForm: (formName, field, value) => {
+                state[formName][field] = value; render();
+                const el = document.getElementById(`input-${field}`);
+                if(el) { el.focus(); if(el.setSelectionRange) { const len = el.value.length; el.setSelectionRange(len, len); } }
+            },
+
+            handleNumberInput: (targetObj, field, el) => {
+                const rawValue = el.value.replace(/\D/g, '');
+                state[targetObj][field] = rawValue === '' ? '' : parseInt(rawValue, 10);
+                el.value = formatNumberString(rawValue);
+            },
+
+            // --- Database Helpers ---
+            getDbPath: (collectionName) => { const userId = `code_${state.accessCode}`; return collection(db, 'artifacts', appId, 'users', userId, collectionName); },
+            getDocPath: (collectionName, docId) => { const userId = `code_${state.accessCode}`; return doc(db, 'artifacts', appId, 'users', userId, collectionName, docId); },
+
+            submitSettings: async (e) => {
+                e.preventDefault(); if (!state.accessCode) return;
+                const { settingsTab, settingsForm, editingItem } = state;
+                const colName = getCollectionName(settingsTab);
+                const newItem = { name: settingsForm.name, icon: settingsForm.icon, color: settingsForm.color, updatedAt: new Date().toISOString() };
+                if (settingsTab === 'wallets') { newItem.type = settingsForm.type; newItem.initialBalance = Number(settingsForm.initialBalance); } else { newItem.budget = Number(settingsForm.budget); }
+                try {
+                    if (editingItem) await updateDoc(window.app.getDocPath(colName, editingItem.id), newItem);
+                    else { newItem.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath(colName), newItem); }
+                    state.isSettingsModalOpen = false; render();
+                } catch (err) { console.error(err); alert("Gagal menyimpan."); }
+            },
+
+            deleteSettingsItem: async (id) => {
+                if (!confirm('Hapus item ini?')) return;
+                try { await deleteDoc(window.app.getDocPath(getCollectionName(state.settingsTab), id)); } catch (err) { console.error(err); }
+            },
+
+            submitTransaction: async (e) => {
+                e.preventDefault(); if (!state.accessCode) return;
+                const { txForm } = state;
+                if (!txForm.categoryId || !txForm.walletId || !txForm.amount) return alert("Data tidak lengkap.");
+                const newTx = { type: txForm.type, date: txForm.date, amount: Number(txForm.amount), walletId: txForm.walletId, categoryId: txForm.categoryId, notes: txForm.notes, createdAt: new Date().toISOString() };
+                try { await addDoc(window.app.getDbPath('transactions'), newTx); state.isTransactionModalOpen = false; render(); } catch (err) { console.error(err); alert("Gagal."); }
+            },
+
+            submitTransfer: async (e) => {
+                e.preventDefault(); if (!state.accessCode) return;
+                const { transferForm } = state;
+                if (!transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount) return alert("Data tidak lengkap.");
+                const newTx = { type: 'transfer', date: transferForm.date, amount: Number(transferForm.amount), fromWalletId: transferForm.fromWalletId, toWalletId: transferForm.toWalletId, notes: transferForm.notes, createdAt: new Date().toISOString() };
+                try { await addDoc(window.app.getDbPath('transactions'), newTx); state.isTransferModalOpen = false; render(); } catch (err) { console.error(err); alert("Gagal."); }
+            },
+
+            submitDebt: async (e) => {
+                e.preventDefault(); if (!state.accessCode) return;
+                const { debtForm } = state;
+                if (!debtForm.person || !debtForm.amount) return alert("Nama dan nominal wajib diisi.");
+                const newDebt = {
+                    type: debtForm.type, person: debtForm.person, amount: Number(debtForm.amount), paidAmount: 0,
+                    date: debtForm.date, dueDate: debtForm.dueDate || null, notes: debtForm.notes,
+                    isOldDebt: debtForm.isOldDebt, status: 'active', createdAt: new Date().toISOString()
+                };
+                try { await addDoc(window.app.getDbPath('debts'), newDebt); state.isDebtModalOpen = false; render(); } catch (err) { console.error(err); alert("Gagal."); }
+            },
+
+            submitDebtPayment: async (e) => {
+                e.preventDefault();
+                if (!state.accessCode) return;
+                const { payDebtForm, selectedDebt } = state;
+                if (!payDebtForm.amount || !payDebtForm.walletId) return alert("Nominal dan dompet wajib diisi.");
+                
+                const paymentAmount = Number(payDebtForm.amount);
+                const currentPaid = selectedDebt.paidAmount || 0;
+                const newPaidTotal = currentPaid + paymentAmount;
+                const remaining = selectedDebt.amount - currentPaid;
+
+                if (paymentAmount > remaining) return alert(`Nominal pembayaran melebihi sisa hutang (${formatRupiah(remaining)}).`);
+
+                try {
+                    const debtRef = window.app.getDocPath('debts', selectedDebt.id);
+                    const updateData = { paidAmount: newPaidTotal, status: newPaidTotal >= selectedDebt.amount ? 'paid' : 'active', updatedAt: new Date().toISOString() };
+                    await updateDoc(debtRef, updateData);
+
+                    const isPayable = selectedDebt.type === 'payable';
+                    const newTx = {
+                        type: isPayable ? 'expense' : 'income',
+                        date: payDebtForm.date,
+                        amount: paymentAmount,
+                        walletId: payDebtForm.walletId,
+                        categoryId: 'DEBT_PAYMENT',
+                        notes: `Pembayaran ${isPayable ? 'Hutang ke' : 'Piutang dari'} ${selectedDebt.person} ${payDebtForm.notes ? '('+payDebtForm.notes+')' : ''}`,
+                        createdAt: new Date().toISOString(),
+                        isDebtPayment: true,
+                        relatedDebtId: selectedDebt.id
+                    };
+                    await addDoc(window.app.getDbPath('transactions'), newTx);
+                    state.isPayDebtModalOpen = false; render();
+                } catch (err) { console.error("Error paying debt:", err); alert("Gagal memproses pembayaran."); }
+            },
+
+            deleteDebt: async (id) => {
+                if (!confirm('Hapus data ini?')) return;
+                try { await deleteDoc(window.app.getDocPath('debts', id)); } catch (err) { console.error(err); }
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) { 
+                state.user = user; 
+                state.isLoading = false; 
+                if (state.accessCode) {
+                    initDataListeners(state.accessCode);
+                }
+                render(); 
+            } else { 
+                signInAnonymously(auth).catch((e) => { console.error(e); state.isLoading = false; render(); }); 
+            }
+        });
+
+        function renderLogin() {
+            return `<div class="flex flex-col items-center justify-center w-full h-full bg-gray-50 px-4"><div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl border border-gray-100 animate-[scaleIn_0.3s_ease-out]"><div class="flex justify-center mb-6"><div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200"><i data-lucide="shield-check" width="32"></i></div></div><h2 class="text-2xl font-bold text-center text-gray-800 mb-2">Selamat Datang</h2><p class="text-center text-gray-500 mb-8 text-sm">Masukkan Kode Akses Anda untuk membuka catatan keuangan.</p><form onsubmit="app.login(event)" class="space-y-4"><div><label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Kode Akses</label><input type="text" id="login-input" value="${state.loginCodeInput}" oninput="app.handleLoginInput(this.value)" class="w-full px-4 py-3 text-center text-xl font-bold tracking-widest border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-300" placeholder="KODE..." autofocus></div><button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"><span>Buka Data</span><i data-lucide="arrow-right" width="18"></i></button></form><div class="mt-6 text-center"><p class="text-xs text-gray-400">Tips: Gunakan kode unik (misal: TOKO1, RUMAH) untuk memisahkan data.</p></div></div></div>`;
+        }
+
+        function renderSidebar() {
+            const menuItems = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+                { id: 'transactions', label: 'Transaksi', icon: 'arrow-right-left' },
+                { id: 'debts', label: 'Hutang Piutang', icon: 'banknote' },
+                { id: 'settings', label: 'Pengaturan', icon: 'settings' },
+            ];
+            return `<aside class="w-16 lg:w-64 bg-white border-r border-gray-200 flex flex-col items-center lg:items-stretch py-6 flex-shrink-0 z-10 transition-all duration-300 h-full"><div class="mb-8 px-2 lg:px-4 flex items-center justify-center lg:justify-start gap-3"><div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200 flex-shrink-0"><i data-lucide="wallet"></i></div><span class="hidden lg:block font-bold text-xl tracking-tight text-gray-800">MyKeuangan</span></div><nav class="flex-1 w-full space-y-2 px-2 overflow-y-auto">${menuItems.map(item => `<button onclick="app.setMenu('${item.id}')" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${state.activeMenu === item.id ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'} justify-center lg:justify-start" title="${item.label}"><i data-lucide="${item.icon}" class="${state.activeMenu === item.id ? 'stroke-2' : ''}"></i><span class="hidden lg:block font-medium">${item.label}</span></button>`).join('')}</nav><div class="px-2 lg:px-4 mt-auto pt-4 border-t border-gray-100"><div class="hidden lg:block bg-gray-50 rounded-lg p-3 mb-3"><p class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Kode Akses</p><p class="text-sm font-mono font-bold text-gray-700 truncate" title="${state.accessCode}">${state.accessCode}</p></div><button onclick="app.logout()" class="w-full flex items-center gap-3 px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors justify-center lg:justify-start"><i data-lucide="log-out" width="18"></i><span class="hidden lg:block font-medium text-sm">Keluar</span></button></div></aside>`;
+        }
+
+        // --- DASHBOARD RENDERER (REDESIGNED) ---
+        window.app.renderDashboardOriginal = function() {
+            const { transactions, wallets, expense, income } = state.data;
+            const filter = state.dashboardFilter;
+
+            // 1. FILTER TRANSACTIONS
+            const filteredTx = transactions.filter(tx => {
+                if (filter.startDate && tx.date < filter.startDate) return false;
+                if (filter.endDate && tx.date > filter.endDate) return false;
+                if (filter.type !== 'all') {
+                    if (filter.type === 'debt') { if (!tx.isDebtPayment) return false; }
+                    else if (filter.type === 'transfer') { if (tx.type !== 'transfer') return false; }
+                    else if (filter.type === 'expense') { if (tx.type !== 'expense' || tx.isDebtPayment) return false; }
+                    else if (filter.type === 'income') { if (tx.type !== 'income' || tx.isDebtPayment) return false; }
+                }
+                if (filter.walletId !== 'all') {
+                    if (tx.type === 'transfer') { if (tx.fromWalletId !== filter.walletId && tx.toWalletId !== filter.walletId) return false; }
+                    else { if (tx.walletId !== filter.walletId) return false; }
+                }
+                return true;
+            });
+
+            // 2. ANALYTICS (KPI & CHARTS)
+            let totalIncome = 0;
+            let totalExpense = 0;
+            const expenseByCategory = {}; 
+            
+            filteredTx.forEach(tx => {
+                if (tx.type === 'income' && !tx.isDebtPayment) totalIncome += tx.amount;
+                if (tx.type === 'expense' && !tx.isDebtPayment) {
+                    totalExpense += tx.amount;
+                    if (tx.categoryId) expenseByCategory[tx.categoryId] = (expenseByCategory[tx.categoryId] || 0) + tx.amount;
+                }
+            });
+
+            // Global Asset Calculation (Total Real Balance - Respected Exclusion)
+            const walletBalances = {};
+            wallets.forEach(w => walletBalances[w.id] = w.initialBalance || 0);
+            transactions.forEach(tx => {
+                if (tx.type === 'expense') walletBalances[tx.walletId] -= tx.amount;
+                if (tx.type === 'income') walletBalances[tx.walletId] += tx.amount;
+                if (tx.type === 'transfer') { walletBalances[tx.fromWalletId] -= tx.amount; walletBalances[tx.toWalletId] += tx.amount; }
+            });
+            // Sum only active wallets
+            const totalAssets = wallets.reduce((sum, w) => sum + (w.isExcluded ? 0 : (walletBalances[w.id] || 0)), 0);
+
+            // Budget Analysis Data
+            const budgetData = expense.map(cat => {
+                const spent = expenseByCategory[cat.id] || 0;
+                const budget = cat.budget || 0;
+                return { ...cat, spent, remaining: budget - spent, percent: budget > 0 ? (spent / budget) * 100 : 0 };
+            }).sort((a, b) => b.percent - a.percent);
+
+            const totalBudget = budgetData.reduce((sum, item) => sum + (item.budget || 0), 0);
+            const totalBudgetSpent = budgetData.reduce((sum, item) => sum + item.spent, 0);
+            const totalBudgetPercent = totalBudget > 0 ? (totalBudgetSpent / totalBudget) * 100 : 0;
+
+            // Top 5s
+            const topCategories = budgetData.slice(0, 5).filter(c => c.spent > 0);
+            const topExpenses = filteredTx.filter(tx => tx.type === 'expense' && !tx.isDebtPayment).sort((a, b) => b.amount - a.amount).slice(0, 5);
+
+            const btnClass = (active) => `px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`;
+
+            return `
+                <div class="space-y-6 pb-10">
+                    <!-- FILTERS -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                        <div class="flex flex-col lg:flex-row gap-4 justify-between items-start">
+                            <div class="space-y-3 w-full lg:w-auto">
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    <button onclick="app.setDashboardFilter('periodMode', 'monthly')" class="${btnClass(filter.periodMode === 'monthly')}">Bulanan</button>
+                                    <button onclick="app.setDashboardFilter('periodMode', 'daily')" class="${btnClass(filter.periodMode === 'daily')}">Harian</button>
+                                    <div class="flex items-center gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+                                        <input type="date" value="${filter.startDate}" onchange="app.setDashboardFilter('startDate', this.value)" class="bg-transparent text-xs font-medium text-gray-600 outline-none">
+                                        <span class="text-gray-400 text-xs">-</span>
+                                        <input type="date" value="${filter.endDate}" onchange="app.setDashboardFilter('endDate', this.value)" class="bg-transparent text-xs font-medium text-gray-600 outline-none">
+                                    </div>
+                                    <button onclick="app.resetDashboardFilter()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 flex items-center gap-1"><i data-lucide="refresh-cw" width="12"></i> Reset</button>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button onclick="app.setDashboardFilter('type', 'all')" class="${btnClass(filter.type === 'all')}">Semua</button>
+                                    <button onclick="app.setDashboardFilter('type', 'income')" class="${btnClass(filter.type === 'income')}">Pemasukan</button>
+                                    <button onclick="app.setDashboardFilter('type', 'expense')" class="${btnClass(filter.type === 'expense')}">Pengeluaran</button>
+                                    <button onclick="app.setDashboardFilter('type', 'debt')" class="${btnClass(filter.type === 'debt')}">Hutang/Piutang</button>
+                                </div>
+                            </div>
+                            <div>
+                                <select onchange="app.setDashboardFilter('walletId', this.value)" class="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">Semua Dompet</option>
+                                    ${wallets.map(w => `<option value="${w.id}" ${filter.walletId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ROW 1: KPI CARDS -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-gradient-to-br from-blue-700 to-indigo-800 p-6 rounded-2xl text-white shadow-lg shadow-indigo-200">
+                            <p class="text-blue-200 text-sm font-medium mb-1">Total Saldo Bersih</p>
+                            <h3 class="text-3xl font-bold tracking-tight">${formatRupiah(totalAssets)}</h3>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl border border-green-100 shadow-sm">
+                            <div class="flex items-center gap-2 mb-1 text-green-600"><i data-lucide="arrow-up-right" width="18"></i><span class="text-sm font-bold uppercase">Pemasukan</span></div>
+                            <h3 class="text-2xl font-bold text-gray-800">${formatRupiah(totalIncome)}</h3>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl border border-red-100 shadow-sm">
+                            <div class="flex items-center gap-2 mb-1 text-red-600"><i data-lucide="arrow-down-left" width="18"></i><span class="text-sm font-bold uppercase">Pengeluaran</span></div>
+                            <h3 class="text-2xl font-bold text-gray-800">${formatRupiah(totalExpense)}</h3>
+                        </div>
+                    </div>
+
+                    <!-- ROW 2: WALLET TABLE (FULL WIDTH) -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100"><h3 class="font-bold text-gray-800">Daftar Dompet & Akun</h3></div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-gray-500 uppercase bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3">Nama Akun</th>
+                                        <th class="px-6 py-3">Kategori</th>
+                                        <th class="px-6 py-3 text-right">Saldo Saat Ini</th>
+                                        <th class="px-6 py-3 text-center">Hitung di Total?</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    ${wallets.map(w => `
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-3 font-medium text-gray-800 flex items-center gap-3">
+                                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white ${w.color}"><i data-lucide="${w.icon}" width="14"></i></div>
+                                                ${w.name}
+                                            </td>
+                                            <td class="px-6 py-3"><span class="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600 border border-gray-200">${w.type}</span></td>
+                                            <td class="px-6 py-3 text-right font-bold text-gray-700">${formatRupiah(walletBalances[w.id])}</td>
+                                            <td class="px-6 py-3 text-center">
+                                                <div class="flex justify-center">
+                                                    <label class="checkbox-wrapper cursor-pointer relative">
+                                                        <input type="checkbox" ${!w.isExcluded ? 'checked' : ''} onchange="app.toggleWalletExclusion('${w.id}', this.checked)" class="sr-only">
+                                                        <div class="w-5 h-5 bg-white border-2 border-gray-300 rounded transition-colors flex items-center justify-center">
+                                                            <svg class="w-3 h-3 text-white hidden fill-current" viewBox="0 0 20 20"><path d="M0 11l2-2 5 5L18 3l2 2L7 18z"/></svg>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ROW 3: COMPLEX LAYOUT -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        <!-- COL 1: TRANSACTION LIST (1/3) -->
+                        <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 h-fit">
+                            <div class="p-4 border-b border-gray-100"><h3 class="font-bold text-gray-800">Riwayat Transaksi</h3></div>
+                            <div class="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
+                                ${filteredTx.length === 0 ? `<div class="p-8 text-center text-gray-400 text-sm">Tidak ada data.</div>` : ''}
+                                ${filteredTx.map(tx => {
+                                    const isExpense = tx.type === 'expense';
+                                    let name = 'Transaksi', icon = 'circle', color = 'bg-gray-400';
+                                    if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-500'; }
+                                    else if(tx.isDebtPayment) { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check-circle'; color = isExpense ? 'bg-red-500' : 'bg-green-500'; }
+                                    else {
+                                        const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId);
+                                        if(cat) { name = cat.name; icon = cat.icon; color = cat.color; }
+                                    }
+                                    return `
+                                        <div class="p-3 hover:bg-gray-50 transition-colors">
+                                            <div class="flex justify-between items-start mb-1">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] ${color}"><i data-lucide="${icon}" width="10"></i></div>
+                                                    <span class="font-medium text-gray-800 text-xs truncate max-w-[100px]">${name}</span>
+                                                </div>
+                                                <span class="font-bold text-xs ${isExpense ? 'text-red-600' : 'text-green-600'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span>
+                                            </div>
+                                            <div class="flex justify-between items-center text-[10px] text-gray-400 pl-8">
+                                                <span>${formatDate(tx.date)}</span>
+                                                <span class="truncate max-w-[80px]">${wallets.find(w=>w.id===tx.walletId)?.name || '-'}</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- COL 2: BUDGET & ANALYSIS (2/3) -->
+                        <div class="lg:col-span-2 space-y-6">
+                            
+                            <!-- SUB-ROW 1: TOTAL BUDGET SUMMARY -->
+                            <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                                <div class="flex justify-between items-end mb-2">
+                                    <div>
+                                        <p class="text-gray-500 text-xs font-bold uppercase tracking-wider">Total Anggaran (Budget)</p>
+                                        <h3 class="text-xl font-bold text-gray-800 mt-1">${formatRupiah(totalBudgetSpent)} <span class="text-gray-400 text-sm font-normal">dari ${formatRupiah(totalBudget)}</span></h3>
+                                    </div>
+                                    <span class="text-2xl font-bold ${totalBudgetPercent > 100 ? 'text-red-600' : 'text-blue-600'}">${totalBudgetPercent.toFixed(0)}%</span>
+                                </div>
+                                <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                                    <div class="h-full ${totalBudgetPercent > 100 ? 'bg-red-500' : 'bg-blue-600'}" style="width: ${Math.min(100, totalBudgetPercent)}%"></div>
+                                </div>
+                            </div>
+
+                            <!-- SUB-ROW 2: SPLIT ANALYSIS -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                
+                                <!-- LEFT: CATEGORY BREAKDOWN -->
+                                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm h-fit">
+                                    <h4 class="font-bold text-gray-800 mb-4 text-sm flex items-center gap-2"><i data-lucide="list" width="16"></i> Rincian Kategori</h4>
+                                    <div class="space-y-4">
+                                        ${budgetData.length === 0 ? `<p class="text-xs text-gray-400 text-center">Belum ada data.</p>` : ''}
+                                        ${budgetData.map(cat => {
+                                            const isOver = cat.spent > cat.budget && cat.budget > 0;
+                                            const percent = Math.min(100, cat.percent);
+                                            let barColor = 'bg-blue-500';
+                                            if (percent > 75) barColor = 'bg-yellow-500';
+                                            if (percent >= 100) barColor = 'bg-red-500';
+                                            return `
+                                                <div>
+                                                    <div class="flex justify-between text-xs mb-1">
+                                                        <span class="font-medium text-gray-700">${cat.name}</span>
+                                                        <span class="${isOver ? 'text-red-600 font-bold' : 'text-gray-500'}">${Math.round(cat.percent)}%</span>
+                                                    </div>
+                                                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1">
+                                                        <div class="h-full ${barColor}" style="width: ${cat.budget > 0 ? percent : 0}%"></div>
+                                                    </div>
+                                                    <div class="flex justify-between text-[10px] text-gray-400">
+                                                        <span>Terpakai: ${formatRupiah(cat.spent)}</span>
+                                                        <span>Budget: ${formatRupiah(cat.budget)}</span>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- RIGHT: TOP 5 STACK -->
+                                <div class="space-y-6">
+                                    <!-- TOP 5 CATEGORIES -->
+                                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                                        <h4 class="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2"><i data-lucide="pie-chart" width="16" class="text-purple-500"></i> Top 5 Kategori</h4>
+                                        <div class="space-y-3">
+                                            ${topCategories.map(cat => `
+                                                <div class="flex items-center justify-between text-xs">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-2 h-2 rounded-full ${cat.color}"></div>
+                                                        <span class="text-gray-700">${cat.name}</span>
+                                                    </div>
+                                                    <span class="font-bold text-gray-800">${formatRupiah(cat.amount)}</span>
+                                                </div>
+                                            `).join('')}
+                                            ${topCategories.length === 0 ? `<p class="text-xs text-gray-400">Belum ada data.</p>` : ''}
+                                        </div>
+                                    </div>
+
+                                    <!-- TOP 5 TRANSACTIONS -->
+                                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                                        <h4 class="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2"><i data-lucide="trending-down" width="16" class="text-red-500"></i> Top 5 Transaksi</h4>
+                                        <div class="space-y-3">
+                                            ${topExpenses.map(tx => {
+                                                const cat = expense.find(c => c.id === tx.categoryId);
+                                                return `
+                                                    <div class="flex items-center justify-between text-xs pb-2 border-b border-gray-50 last:border-0 last:pb-0">
+                                                        <div>
+                                                            <p class="font-medium text-gray-700">${cat ? cat.name : 'Lainnya'}</p>
+                                                            <p class="text-gray-400 text-[10px]">${formatDate(tx.date)}</p>
+                                                        </div>
+                                                        <span class="font-bold text-red-600">${formatRupiah(tx.amount)}</span>
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                            ${topExpenses.length === 0 ? `<p class="text-xs text-gray-400">Belum ada data.</p>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.app.renderSettingsModalOriginal = function() {
+            const { settingsTab, data } = state;
+            const currentData = data[settingsTab] || [];
+            let title = settingsTab === 'expense' ? "Kategori Pengeluaran" : settingsTab === 'income' ? "Kategori Pemasukan" : "Sumber Dana";
+            
+            return `
+                <div class="space-y-6">
+                    <div class="flex overflow-x-auto pb-2 gap-2 border-b border-gray-200 no-scrollbar">
+                        <button onclick="app.setSettingsTab('expense')" class="px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-colors ${settingsTab === 'expense' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'text-gray-600 hover:bg-gray-50'}">Kategori Pengeluaran</button>
+                        <button onclick="app.setSettingsTab('income')" class="px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-colors ${settingsTab === 'income' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'text-gray-600 hover:bg-gray-50'}">Kategori Pemasukan</button>
+                        <button onclick="app.setSettingsTab('wallets')" class="px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-colors ${settingsTab === 'wallets' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'text-gray-600 hover:bg-gray-50'}">Sumber Dana</button>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-6 border-b border-gray-100 flex justify-between items-center flex-wrap gap-4">
+                            <h2 class="text-xl font-bold text-gray-800">${title}</h2>
+                            <button onclick="app.openSettingsModal('add')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-200">
+                                <i data-lucide="plus" width="18"></i> Tambah Baru
+                            </button>
+                        </div>
+
+                        <div class="divide-y divide-gray-50">
+                            ${currentData.length === 0 ? `<div class="p-8 text-center text-gray-400">Belum ada data.</div>` : ''}
+                            ${currentData.map(item => `
+                                <div class="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-sm ${item.color}">
+                                            <i data-lucide="${item.icon}"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-gray-800">${item.name}</h4>
+                                            <div class="text-xs text-gray-500 mt-1">
+                                                ${settingsTab === 'wallets' ? `Saldo Awal: ${formatRupiah(item.initialBalance)}` : `Budget: ${item.budget ? formatRupiah(item.budget) : '-'}`}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="app.openSettingsModal('edit', '${item.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit-2" width="18"></i></button>
+                                        <button onclick="app.deleteSettingsItem('${item.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" width="18"></i></button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.app.renderAllModals = function() {
+            if (state.isSettingsModalOpen) return window.app.renderSettingsModalOriginalHTML();
+            if (state.isTransactionModalOpen) return window.app.renderTxModalOriginalHTML();
+            if (state.isTransferModalOpen) return window.app.renderTransferModalOriginalHTML();
+            if (state.isDebtModalOpen) return window.app.renderDebtModalOriginalHTML();
+            if (state.isPayDebtModalOpen) return window.app.renderPayDebtModalOriginalHTML();
+            return '';
+        };
+
+        // --- Render Functions (Debts, Settings, Tx) SAME AS BEFORE ---
+        // Using window.app... to reference the functions if needed but for clean code, redefining briefly here as per mandate 'single file' logic.
+        // Actually, to ensure no "is not defined" errors, I will include the full bodies again.
+
+        window.app.renderDebtsGrouped = function() {
+            const { debts } = state.data;
+            const expandedPerson = state.expandedPerson;
+            const grouped = {};
+            debts.forEach(debt => {
+                const rawName = debt.person.trim();
+                const personKey = rawName.toLowerCase(); 
+                if (!grouped[personKey]) { grouped[personKey] = { name: rawName, items: [], totalPayable: 0, totalReceivable: 0 }; }
+                grouped[personKey].items.push(debt);
+                const remaining = debt.amount - (debt.paidAmount || 0);
+                if (remaining > 0) { if (debt.type === 'payable') { grouped[personKey].totalPayable += remaining; } else { grouped[personKey].totalReceivable += remaining; } }
+            });
+            const groupedList = Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name));
+            const grandTotalPayable = groupedList.reduce((sum, g) => sum + g.totalPayable, 0);
+            const grandTotalReceivable = groupedList.reduce((sum, g) => sum + g.totalReceivable, 0);
+            return `<div class="space-y-6"><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="bg-gradient-to-br from-red-500 to-rose-600 p-6 rounded-2xl text-white shadow-lg shadow-red-100 relative overflow-hidden"><div class="relative z-10"><p class="text-red-100 text-sm font-medium mb-1">Total Hutang Saya</p><h3 class="text-3xl font-bold">${formatRupiah(grandTotalPayable)}</h3></div><i data-lucide="arrow-up-right" class="absolute right-4 top-4 text-white/20 w-16 h-16"></i></div><div class="bg-gradient-to-br from-emerald-500 to-green-600 p-6 rounded-2xl text-white shadow-lg shadow-green-100 relative overflow-hidden"><div class="relative z-10"><p class="text-green-100 text-sm font-medium mb-1">Total Piutang (Uang Diluar)</p><h3 class="text-3xl font-bold">${formatRupiah(grandTotalReceivable)}</h3></div><i data-lucide="arrow-down-left" class="absolute right-4 top-4 text-white/20 w-16 h-16"></i></div></div><div class="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div><h2 class="text-xl font-bold text-gray-800">Daftar Orang</h2><p class="text-gray-500 text-xs">Klik nama untuk lihat detail.</p></div><button onclick="app.openDebtModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"><i data-lucide="plus" width="16"></i> Catat Baru</button></div><div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">${groupedList.length === 0 ? `<div class="p-12 text-center text-gray-400 flex flex-col items-center col-span-full"><i data-lucide="users" width="48" class="mb-2 opacity-50"></i><p>Belum ada catatan.</p></div>` : ''}${groupedList.map(group => { const isExpanded = expandedPerson === group.name; const hasPayable = group.totalPayable > 0; const hasReceivable = group.totalReceivable > 0; const isPaidOff = !hasPayable && !hasReceivable; let badgeHtml = ''; if (isPaidOff) badgeHtml = `<span class="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-full">LUNAS</span>`; else { if (hasPayable) badgeHtml += `<span class="bg-red-50 text-red-600 text-[10px] font-bold px-2 py-1 rounded-full border border-red-100">Hutang: ${formatRupiah(group.totalPayable)}</span>`; if (hasReceivable) badgeHtml += `<span class="bg-green-50 text-green-600 text-[10px] font-bold px-2 py-1 rounded-full border border-green-100 ml-1">Piutang: ${formatRupiah(group.totalReceivable)}</span>`; } return `<div class="bg-white rounded-xl border border-gray-200 overflow-hidden transition-all shadow-sm hover:shadow-md"><button onclick="app.toggleExpandPerson('${group.name}')" class="w-full p-4 flex items-center justify-between text-left focus:outline-none bg-white hover:bg-gray-50"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">${group.name.charAt(0).toUpperCase()}</div><div><h4 class="font-bold text-gray-800 text-base">${group.name}</h4><div class="flex items-center mt-1">${badgeHtml}</div></div></div><div class="text-gray-400 transform transition-transform ${isExpanded ? 'rotate-180' : ''}"><i data-lucide="chevron-down" width="20"></i></div></button>${isExpanded ? `<div class="border-t border-gray-100 bg-gray-50/50 p-2 space-y-2 fade-in">${group.items.map(item => { const isPayable = item.type === 'payable'; const paid = item.paidAmount || 0; const total = item.amount; const remaining = total - paid; const isItemPaid = remaining <= 0; return `<div class="bg-white p-3 rounded-lg border border-gray-100 shadow-sm flex flex-col gap-2"><div class="flex justify-between items-start"><div><div class="flex items-center gap-2"><span class="text-xs font-bold px-1.5 py-0.5 rounded ${isPayable ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${isPayable ? 'HUTANG' : 'PIUTANG'}</span><span class="text-xs text-gray-500">${formatDate(item.date)}</span>${item.isOldDebt ? `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-1 rounded border border-yellow-200">LAMA</span>` : ''}</div><p class="text-xs text-gray-600 mt-1 italic line-clamp-1">${item.notes || 'Tanpa catatan'}</p></div><div class="text-right"><p class="font-bold text-sm text-gray-800">${formatRupiah(total)}</p>${isItemPaid ? `<span class="text-[10px] text-green-600 font-bold flex items-center justify-end gap-1"><i data-lucide="check-circle" width="10"></i> Lunas</span>` : `<p class="text-[10px] text-gray-500">Sisa: <span class="font-semibold text-gray-800">${formatRupiah(remaining)}</span></p>`}</div></div><div class="flex items-center gap-3 mt-1 pt-2 border-t border-gray-50"><div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div class="h-full ${isPayable ? 'bg-red-500' : 'bg-green-500'}" style="width: ${(paid/total)*100}%"></div></div><div class="flex gap-2">${!isItemPaid ? `<button onclick="app.openPayDebtModal('${item.id}')" class="px-2 py-1 bg-gray-800 text-white text-[10px] font-bold rounded hover:bg-gray-900">${isPayable ? 'Bayar' : 'Terima'}</button>` : ''}<button onclick="app.deleteDebt('${item.id}')" class="text-gray-400 hover:text-red-500"><i data-lucide="trash-2" width="14"></i></button></div></div></div>`; }).join('')}</div>` : ''}</div>`; }).join('')}</div></div>`;
+        };
+
+        window.app.renderTransactionsOriginal = function() {
+            const { transactions, wallets, expense, income, filter } = state.data;
+            const currentFilter = state.filter;
+            const filteredTransactions = state.data.transactions.filter(tx => {
+                if (currentFilter.startDate && tx.date < currentFilter.startDate) return false;
+                if (currentFilter.endDate && tx.date > currentFilter.endDate) return false;
+                if (currentFilter.type === 'all') return true;
+                if (currentFilter.type === 'debt') return tx.isDebtPayment;
+                if (currentFilter.type === 'expense') return tx.type === 'expense' && !tx.isDebtPayment;
+                if (currentFilter.type === 'income') return tx.type === 'income' && !tx.isDebtPayment;
+                if (currentFilter.type === 'transfer') return tx.type === 'transfer';
+                return true;
+            });
+            const filterBtnClass = (type) => `px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${currentFilter.type === type ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`;
+            return `<div class="space-y-6"><div class="flex justify-between items-center bg-blue-600 p-6 rounded-2xl shadow-lg shadow-blue-200 text-white relative overflow-hidden"><div class="relative z-10"><h2 class="text-2xl font-bold">Transaksi</h2><p class="text-blue-100 text-sm mt-1">Catat dan pantau arus kas Anda.</p></div><div class="relative z-10 flex gap-3"><button onclick="app.openTransferModal()" class="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg text-sm font-medium transition-all flex items-center gap-2"><i data-lucide="arrow-right-left" width="16"></i> Transfer</button><button onclick="app.openTransactionModal()" class="px-4 py-2 bg-white text-blue-600 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-50 transition-all flex items-center gap-2"><i data-lucide="plus" width="18"></i> Transaksi Baru</button></div><div class="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-8 -mt-8"></div></div><div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-4"><div class="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center"><div class="flex flex-wrap gap-2"><button onclick="app.setTxFilter('type', 'all')" class="${filterBtnClass('all')}">Semua</button><button onclick="app.setTxFilter('type', 'expense')" class="${filterBtnClass('expense')}">Pengeluaran</button><button onclick="app.setTxFilter('type', 'income')" class="${filterBtnClass('income')}">Pemasukan</button><button onclick="app.setTxFilter('type', 'transfer')" class="${filterBtnClass('transfer')}">Transfer</button><button onclick="app.setTxFilter('type', 'debt')" class="${filterBtnClass('debt')}">Hutang/Piutang</button></div><div class="flex items-center gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-200"><input type="date" value="${currentFilter.startDate}" onchange="app.setTxFilter('startDate', this.value)" class="bg-transparent text-xs font-medium text-gray-600 outline-none cursor-pointer"><span class="text-gray-400 text-xs">s/d</span><input type="date" value="${currentFilter.endDate}" onchange="app.setTxFilter('endDate', this.value)" class="bg-transparent text-xs font-medium text-gray-600 outline-none cursor-pointer"></div></div></div><div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><div class="p-4 border-b border-gray-100 flex justify-between items-center"><h3 class="font-bold text-gray-800">Riwayat Transaksi</h3><span class="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded-md">${filteredTransactions.length} Data</span></div><div class="divide-y divide-gray-50">${filteredTransactions.length === 0 ? `<div class="p-12 text-center text-gray-400 flex flex-col items-center"><i data-lucide="filter-x" width="48" class="mb-2 opacity-50"></i><p>Tidak ada transaksi sesuai filter.</p></div>` : ''}${filteredTransactions.map(tx => { let icon, color, title, subtitle, amountColor, amountPrefix; const wallets = state.data.wallets; const expense = state.data.expense; const income = state.data.income; if (tx.type === 'transfer') { icon = 'arrow-right-left'; color = 'bg-gray-500'; const fromWallet = wallets.find(w => w.id === tx.fromWalletId)?.name || 'Unknown'; const toWallet = wallets.find(w => w.id === tx.toWalletId)?.name || 'Unknown'; title = 'Transfer Aset'; subtitle = `${fromWallet} &rarr; ${toWallet}`; amountColor = 'text-gray-800'; amountPrefix = ''; } else { const isExpense = tx.type === 'expense'; const wallet = wallets.find(w => w.id === tx.walletId)?.name || 'Unknown'; amountColor = isExpense ? 'text-red-600' : 'text-green-600'; amountPrefix = isExpense ? '- ' : '+ '; if (tx.isDebtPayment) { icon = isExpense ? 'check-circle' : 'thumbs-up'; color = isExpense ? 'bg-red-500' : 'bg-green-500'; title = tx.type === 'expense' ? 'Bayar Hutang' : 'Terima Piutang'; } else { const category = (isExpense ? expense : income).find(c => c.id === tx.categoryId); icon = category?.icon || 'help-circle'; color = category?.color || 'bg-gray-400'; title = category?.name || 'Kategori Terhapus'; } subtitle = `${wallet} ${tx.notes ? '• ' + tx.notes : ''}`; } return `<div class="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm shadow-sm ${color} flex-shrink-0"><i data-lucide="${icon}" width="18"></i></div><div class="min-w-0"><h4 class="font-semibold text-gray-800 truncate">${title}</h4><p class="text-xs text-gray-500 truncate">${formatDate(tx.date)} • ${subtitle}</p></div></div><div class="font-bold ${amountColor} whitespace-nowrap ml-4">${amountPrefix}${formatRupiah(tx.amount)}</div></div>`; }).join('')}</div></div></div>`;
+        };
+
+        window.app.renderSettingsModalOriginalHTML = function() { const {editingItem,settingsTab,settingsForm}=state; const isWallet=settingsTab==='wallets'; const displayBudget=settingsForm.budget?formatNumberString(String(settingsForm.budget)):''; const displayBalance=settingsForm.initialBalance?formatNumberString(String(settingsForm.initialBalance)):''; return `<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-[scaleIn_0.2s_ease-out]"><div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10"><h3 class="font-bold text-xl">${editingItem?'Edit':'Tambah'} ${isWallet?'Dompet':'Kategori'}</h3><button onclick="app.closeAllModals()" class="p-2 hover:bg-gray-100 rounded-full"><i data-lucide="x"></i></button></div><form onsubmit="app.submitSettings(event)" class="p-6 space-y-5"><div><label class="label-text">Nama</label><input required type="text" id="input-name" value="${settingsForm.name}" oninput="app.updateForm('settingsForm','name',this.value)" class="input-field" placeholder="Contoh: Belanja"></div>${isWallet?`<div><label class="label-text">Tipe</label><div class="grid grid-cols-3 gap-2">${['Cash','Bank','E-Wallet'].map(t=>`<button type="button" onclick="app.updateForm('settingsForm','type','${t}')" class="btn-option ${settingsForm.type===t?'active':''}">${t}</button>`).join('')}</div></div><div><label class="label-text">Saldo Awal</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBalance}" oninput="app.handleNumberInput('settingsForm','initialBalance',this)" class="input-field pl-12" placeholder="0"></div></div>`:`<div><label class="label-text">Budget</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBudget}" oninput="app.handleNumberInput('settingsForm','budget',this)" class="input-field pl-12" placeholder="0"></div></div>`}<div><label class="label-text">Warna</label><div class="flex flex-wrap gap-2">${colorOptions.map(c=>`<button type="button" onclick="app.updateForm('settingsForm','color','${c}')" class="w-8 h-8 rounded-full ${c} ${settingsForm.color===c?'ring-2 ring-offset-2 ring-gray-400 scale-110':''}"></button>`).join('')}</div></div><div><label class="label-text">Ikon</label><div class="grid grid-cols-7 gap-2 max-h-40 overflow-y-auto pr-2 custom-scroll">${iconOptions.map(i=>`<button type="button" onclick="app.updateForm('settingsForm','icon','${i}')" class="p-2 rounded-lg flex justify-center ${settingsForm.icon===i?'bg-blue-100 text-blue-600 ring-2 ring-blue-500':'bg-gray-100 hover:bg-gray-200'}"><i data-lucide="${i}" width="18"></i></button>`).join('')}</div></div><button type="submit" class="w-full btn-primary">Simpan</button></form></div></div>`; };
+        window.app.renderTxModalOriginalHTML = function() { const {txForm,data}=state; const isExpense=txForm.type==='expense'; const categories=isExpense?data.expense:data.income; const displayAmount=txForm.amount?formatNumberString(String(txForm.amount)):''; return `<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-[scaleIn_0.2s_ease-out]"><div class="p-4 border-b flex items-center justify-between sticky top-0 bg-white z-10"><h3 class="font-bold text-lg">Tambah Transaksi</h3><button onclick="app.closeAllModals()"><i data-lucide="x"></i></button></div><form onsubmit="app.submitTransaction(event)" class="p-6 space-y-5"><div class="bg-gray-100 p-1 rounded-xl flex"><button type="button" onclick="app.setTxType('expense')" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${isExpense?'bg-white text-red-600 shadow-sm':'text-gray-500 hover:text-gray-700'}">Pengeluaran</button><button type="button" onclick="app.setTxType('income')" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${!isExpense?'bg-white text-green-600 shadow-sm':'text-gray-500 hover:text-gray-700'}">Pemasukan</button></div><div><label class="label-text">Tanggal</label><input type="date" value="${txForm.date}" onchange="app.updateForm('txForm','date',this.value)" class="input-field"></div><div><label class="label-text">Dompet</label>${data.wallets.length===0?`<p class="text-sm text-red-500">Belum ada dompet.</p>`:`<div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" onclick="app.setTxWallet('${w.id}')" class="p-3 rounded-lg border text-left flex items-center gap-2 transition-all ${txForm.walletId===w.id?'bg-blue-50 border-blue-500 ring-1 ring-blue-500':'bg-white border-gray-200 hover:bg-gray-50'}"><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs ${w.color||'bg-gray-400'}"><i data-lucide="${w.icon||'wallet'}" width="16"></i></div><span class="text-sm font-medium truncate">${w.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('txForm','amount',this)" class="input-field pl-12 text-lg font-bold ${isExpense?'text-red-600':'text-green-600'}" placeholder="0" autofocus></div></div><div><label class="label-text mb-2 block">Kategori</label>${categories.length===0?`<p class="text-sm text-red-500 bg-red-50 p-3 rounded-lg">Belum ada kategori.</p>`:`<div class="grid grid-cols-4 gap-3 max-h-48 overflow-y-auto pr-1 custom-scroll">${categories.map(cat=>`<button type="button" onclick="app.selectCategory('${cat.id}')" class="flex flex-col items-center gap-1 p-2 rounded-xl transition-all border ${txForm.categoryId===cat.id?'bg-blue-50 border-blue-500 ring-1 ring-blue-500':'bg-white border-gray-100 hover:bg-gray-50'}"><div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs ${cat.color}"><i data-lucide="${cat.icon}" width="18"></i></div><span class="text-[10px] font-medium text-gray-600 truncate w-full text-center">${cat.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text">Catatan (Opsional)</label><textarea id="input-notes" rows="2" oninput="app.updateForm('txForm','notes',this.value)" class="input-field resize-none" placeholder="Keterangan transaksi...">${txForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3">Simpan Transaksi</button></form></div></div>`; };
+        window.app.renderTransferModalOriginalHTML = function() { const {transferForm,data}=state; const displayAmount=transferForm.amount?formatNumberString(String(transferForm.amount)):''; return `<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-[scaleIn_0.2s_ease-out]"><div class="p-4 border-b flex items-center justify-between"><h3 class="font-bold text-lg">Transfer Aset</h3><button onclick="app.closeAllModals()"><i data-lucide="x"></i></button></div><form onsubmit="app.submitTransfer(event)" class="p-6 space-y-5"><div><label class="label-text">Tanggal</label><input type="date" value="${transferForm.date}" onchange="app.updateForm('transferForm','date',this.value)" class="input-field"></div><div><label class="label-text mb-2">Dari Dompet</label><div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" onclick="app.setTransferWallet('fromWalletId','${w.id}')" class="p-3 rounded-lg border text-left flex items-center gap-2 transition-all ${transferForm.fromWalletId===w.id?'bg-red-50 border-red-500 ring-1 ring-red-500':'bg-white border-gray-200 hover:bg-gray-50'}"><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs ${w.color||'bg-gray-400'}"><i data-lucide="${w.icon||'wallet'}" width="16"></i></div><span class="text-sm font-medium truncate">${w.name}</span></button>`).join('')}</div></div><div class="flex justify-center -my-2 relative z-10"><div class="bg-gray-100 p-2 rounded-full text-gray-500"><i data-lucide="arrow-down" width="20"></i></div></div><div><label class="label-text mb-2">Ke Dompet</label><div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" onclick="app.setTransferWallet('toWalletId','${w.id}')" class="p-3 rounded-lg border text-left flex items-center gap-2 transition-all ${transferForm.toWalletId===w.id?'bg-green-50 border-green-500 ring-1 ring-green-500':'bg-white border-gray-200 hover:bg-gray-50'} ${w.id===transferForm.fromWalletId?'opacity-50 cursor-not-allowed':''}" ${w.id===transferForm.fromWalletId?'disabled':''}><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs ${w.color||'bg-gray-400'}"><i data-lucide="${w.icon||'wallet'}" width="16"></i></div><span class="text-sm font-medium truncate">${w.name}</span></button>`).join('')}</div></div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('transferForm','amount',this)" class="input-field pl-12 text-lg font-bold text-gray-800" placeholder="0" autofocus></div></div><div><label class="label-text">Catatan</label><textarea id="input-notes" rows="2" oninput="app.updateForm('transferForm','notes',this.value)" class="input-field resize-none" placeholder="Keterangan transfer...">${transferForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3 bg-gray-800 hover:bg-gray-900">Transfer Sekarang</button></form></div></div>`; };
+        window.app.renderDebtModalOriginalHTML = function() { const {debtForm}=state; const isPayable=debtForm.type==='payable'; const displayAmount=debtForm.amount?formatNumberString(String(debtForm.amount)):''; return `<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-[scaleIn_0.2s_ease-out]"><div class="p-4 border-b flex items-center justify-between"><h3 class="font-bold text-lg">Catat Hutang/Piutang</h3><button onclick="app.closeAllModals()"><i data-lucide="x"></i></button></div><form onsubmit="app.submitDebt(event)" class="p-6 space-y-5"><div class="bg-gray-100 p-1 rounded-xl flex"><button type="button" onclick="app.setDebtType('payable')" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${isPayable?'bg-white text-red-600 shadow-sm':'text-gray-500 hover:text-gray-700'}">Hutang (Saya Berhutang)</button><button type="button" onclick="app.setDebtType('receivable')" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${!isPayable?'bg-white text-green-600 shadow-sm':'text-gray-500 hover:text-gray-700'}">Piutang (Orang Berhutang)</button></div><div><label class="label-text">Nama Pihak/Orang</label><div class="relative"><div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><i data-lucide="user" width="18"></i></div><input required type="text" id="input-person" value="${debtForm.person}" oninput="app.updateForm('debtForm','person',this.value)" class="input-field pl-10" placeholder="Contoh: Budi, Warung Sebelah"></div></div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('debtForm','amount',this)" class="input-field pl-12 text-lg font-bold ${isPayable?'text-red-600':'text-green-600'}" placeholder="0"></div></div><div class="grid grid-cols-2 gap-4"><div><label class="label-text">Tanggal</label><input type="date" value="${debtForm.date}" onchange="app.updateForm('debtForm','date',this.value)" class="input-field"></div><div><label class="label-text">Jatuh Tempo (Opsional)</label><input type="date" value="${debtForm.dueDate}" onchange="app.updateForm('debtForm','dueDate',this.value)" class="input-field"></div></div><div class="flex items-center gap-3 bg-yellow-50 p-3 rounded-lg border border-yellow-100 checkbox-wrapper cursor-pointer" onclick="document.getElementById('input-old-debt').click()"><input type="checkbox" id="input-old-debt" onchange="app.toggleDebtOld(this.checked)" class="hidden" ${debtForm.isOldDebt?'checked':''}><div class="w-5 h-5 border-2 border-gray-300 rounded bg-white flex items-center justify-center transition-colors"><svg class="hidden w-3 h-3 text-white fill-current" viewBox="0 0 20 20"><path d="M0 11l2-2 5 5L18 3l2 2L7 18z"/></svg></div><div class="flex-1"><span class="block text-sm font-medium text-gray-800">Hutang/Piutang Lama</span><span class="block text-xs text-gray-500">Saldo saat ini tidak akan dipotong/ditambah.</span></div></div><div><label class="label-text">Catatan</label><textarea id="input-notes" rows="2" oninput="app.updateForm('debtForm','notes',this.value)" class="input-field resize-none" placeholder="Keterangan tambahan...">${debtForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3">Simpan Data</button></form></div></div>`; };
+        window.app.renderPayDebtModalOriginalHTML = function() { const { payDebtForm, data, selectedDebt } = state; const isPayable = selectedDebt.type === 'payable'; const displayAmount = payDebtForm.amount ? formatNumberString(String(payDebtForm.amount)) : ''; const title = isPayable ? `Bayar Hutang: ${selectedDebt.person}` : `Terima Piutang: ${selectedDebt.person}`; const remaining = selectedDebt.amount - (selectedDebt.paidAmount || 0); return `<div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-[scaleIn_0.2s_ease-out]"><div class="p-4 border-b flex items-center justify-between"><h3 class="font-bold text-lg">${title}</h3><button onclick="app.closeAllModals()"><i data-lucide="x"></i></button></div><form onsubmit="app.submitDebtPayment(event)" class="p-6 space-y-5"><div class="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 border border-blue-100"><div class="flex justify-between"><span>Total Hutang:</span> <span class="font-semibold">${formatRupiah(selectedDebt.amount)}</span></div><div class="flex justify-between"><span>Sudah Dibayar:</span> <span class="font-semibold">${formatRupiah(selectedDebt.paidAmount || 0)}</span></div><div class="flex justify-between border-t border-blue-200 mt-1 pt-1"><span class="font-bold">Sisa Tagihan:</span> <span class="font-bold">${formatRupiah(remaining)}</span></div></div><div><label class="label-text">Tanggal Pembayaran</label><input type="date" value="${payDebtForm.date}" onchange="app.updateForm('payDebtForm', 'date', this.value)" class="input-field"></div><div><label class="label-text mb-2">${isPayable ? 'Sumber Dana (Dompet)' : 'Masuk ke Dompet'}</label>${data.wallets.length === 0 ? `<p class="text-sm text-red-500">Belum ada dompet.</p>` : `<div class="grid grid-cols-2 gap-2">${data.wallets.map(w => `<button type="button" onclick="app.setPayDebtWallet('${w.id}')" class="p-3 rounded-lg border text-left flex items-center gap-2 transition-all ${payDebtForm.walletId === w.id ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'bg-white border-gray-200 hover:bg-gray-50'}"><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs ${w.color || 'bg-gray-400'}"><i data-lucide="${w.icon || 'wallet'}" width="16"></i></div><span class="text-sm font-medium truncate">${w.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text">Nominal Dibayar</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('payDebtForm', 'amount', this)" class="input-field pl-12 text-lg font-bold text-gray-800" placeholder="0" autofocus></div><p class="text-xs text-gray-500 mt-1">Maksimal: ${formatRupiah(remaining)}</p></div><div><label class="label-text">Catatan</label><textarea id="input-notes" rows="2" oninput="app.updateForm('payDebtForm', 'notes', this.value)" class="input-field resize-none" placeholder="Contoh: Cicilan ke-1...">${payDebtForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3 bg-gray-800 hover:bg-gray-900">Simpan Pembayaran</button></form></div></div>`; };
+
+        function renderDebts() { return window.app.renderDebtsGrouped(); }
+        function renderSettings() { return window.app.renderSettingsModalOriginal(); }
+        function renderTransactions() { return window.app.renderTransactionsOriginal(); }
+        function renderModals() { return window.app.renderAllModals(); }
+        function renderDashboard() { return window.app.renderDashboardOriginal(); }
+
+        function render() {
+            const appDiv = document.getElementById('app');
+            if (state.isLoading) { 
+                appDiv.innerHTML = `<div class="m-auto text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div><p class="text-gray-500">Memuat data...</p></div>`; 
+                return; 
+            }
+
+            if (!state.accessCode) {
+                appDiv.innerHTML = renderLogin();
+                lucide.createIcons();
+                return;
+            }
+
+            let mainContent = '';
+            const active = state.activeMenu;
+            if (active === 'settings') mainContent = renderSettings();
+            else if (active === 'transactions') mainContent = renderTransactions();
+            else if (active === 'debts') mainContent = renderDebts();
+            else if (active === 'dashboard') mainContent = renderDashboard();
+
+            appDiv.innerHTML = `
+                <style>
+                    .label-text { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem; }
+                    .input-field { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; outline: none; transition: all; }
+                    .input-field:focus { ring: 2px solid #3b82f6; border-color: #3b82f6; }
+                    .btn-primary { background-color: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; transition: background-color 0.2s; }
+                    .btn-primary:hover { background-color: #1d4ed8; }
+                    .btn-option { padding: 0.5rem; border-radius: 0.5rem; border: 1px solid #e5e7eb; font-size: 0.875rem; font-weight: 500; color: #4b5563; background: white; }
+                    .btn-option.active { background-color: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
+                    .currency-prefix { position: absolute; left: 0.75rem; top: 0.5rem; color: #9ca3af; }
+                    .custom-scroll::-webkit-scrollbar { width: 4px; }
+                    .custom-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+                    .no-scrollbar::-webkit-scrollbar { display: none; }
+                </style>
+                ${renderSidebar()}
+                <main class="flex-1 flex flex-col min-w-0 bg-gray-50 overflow-hidden relative">
+                    <header class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center flex-shrink-0 z-20"><h1 class="text-xl lg:text-2xl font-bold text-gray-800 capitalize">${active === 'debts' ? 'Hutang Piutang' : active === 'dashboard' ? 'Ringkasan Keuangan' : active}</h1><div class="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User"></div></header>
+                    <div class="flex-1 overflow-y-auto p-4 lg:p-8"><div class="max-w-4xl mx-auto">${mainContent}</div></div>
+                </main>
+                ${renderModals()}
+            `;
+            lucide.createIcons();
+        }
+
+        render();
+    </script>
+</body>
+</html>
