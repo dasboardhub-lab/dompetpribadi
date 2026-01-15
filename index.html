@@ -25,8 +25,10 @@
         
         /* Animations */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .animate-scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
         /* Accordion Animation Classes */
         .grid-rows-0 { grid-template-rows: 0fr; }
@@ -265,10 +267,11 @@
             // FIXED TOGGLE LOGIC
             toggleWalletExclusion: async (id, isChecked) => { 
                 try { 
-                    // isChecked is passed as the current "active" state (!isExcluded). 
-                    // So if it's active (true), we want to make it excluded (true).
-                    // If it's inactive (false), we want to make it excluded (false).
-                    await updateDoc(doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, 'wallets', id), { isExcluded: isChecked }); 
+                    // isChecked here represents the NEW state (e.g. if it was false, isChecked is true)
+                    // We save 'isExcluded'. If checkbox is checked (active), isExcluded should be false.
+                    // If checkbox is unchecked (inactive), isExcluded should be true.
+                    // The UI calls this with the *new* state of the checkbox (true = active).
+                    await updateDoc(doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, 'wallets', id), { isExcluded: !isChecked }); 
                 } catch (err) { console.error(err); } 
             },
             
@@ -377,6 +380,28 @@
 
         // --- RENDERERS ---
         function renderLogin() { return `<div class="flex flex-col items-center justify-center w-full h-full bg-slate-50 px-4"><div class="w-full max-w-xs bg-white p-8 rounded-2xl shadow-xl border border-white animate-scale-in"><div class="flex justify-center mb-6"><div class="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg transform rotate-3"><i data-lucide="shield-check" width="32"></i></div></div><h2 class="text-2xl font-extrabold text-center text-slate-800 mb-2">Selamat Datang</h2><p class="text-center text-slate-500 mb-8 text-xs font-medium">Masukkan Kode Akses Anda.</p><form onsubmit="app.login(event)" class="space-y-4"><div><label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">Kode Akses</label><input type="text" id="login-input" value="${state.loginCodeInput}" oninput="app.handleLoginInput(this.value)" class="w-full px-4 py-3 text-center text-xl font-bold tracking-[0.2em] border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none uppercase placeholder-slate-200 transition-all text-slate-700 bg-slate-50 focus:bg-white" placeholder="CODE" autofocus></div><button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 transform hover:-translate-y-0.5 active:scale-95 text-sm"><span>Buka Catatan</span><i data-lucide="arrow-right" width="16"></i></button></form><div class="mt-6 text-center bg-blue-50 p-3 rounded-xl"><p class="text-[10px] text-blue-600 font-medium">Tips: Gunakan kode unik seperti <span class="font-bold">MYHOME123</span>.</p></div></div></div>`; }
+
+        function renderConfirmModal() {
+            if (!state.confirmModal.isOpen) return '';
+            const { title, message, type } = state.confirmModal;
+            const isDanger = type === 'danger';
+            return `
+                <div class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onclick="app.closeConfirm()"></div>
+                    <div class="bg-white w-full max-w-xs sm:max-w-sm rounded-[2rem] shadow-2xl p-6 relative animate-scale-in flex flex-col items-center text-center border border-white/20">
+                        <div class="w-16 h-16 ${isDanger ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'} rounded-2xl flex items-center justify-center mb-5 shadow-sm">
+                            <i data-lucide="${isDanger ? 'alert-triangle' : 'info'}" width="32"></i>
+                        </div>
+                        <h3 class="text-xl font-extrabold text-slate-800 mb-2 tracking-tight">${title}</h3>
+                        <p class="text-slate-500 text-sm mb-8 leading-relaxed font-medium">${message}</p>
+                        <div class="flex gap-3 w-full">
+                            <button onclick="app.closeConfirm()" class="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors text-sm">Batal</button>
+                            <button onclick="app.executeConfirm()" class="flex-1 py-3.5 ${isDanger ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'} text-white font-bold rounded-xl shadow-lg transition-all transform hover:-translate-y-1 text-sm">Ya, Hapus</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         function render() {
             const appDiv = document.getElementById('app');
