@@ -859,7 +859,7 @@
             <div class="fixed inset-0 z-50 flex items-center justify-center p-3">
             <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div>
 
-            <div class="bg-white ${DS.radius} w-full max-w-md max-h-[92vh] shadow-xl flex flex-col overflow-hidden">
+           <div class="bg-white ${DS.radius} w-full max-w-md max-h-[92vh] shadow-xl flex flex-col justify-start overflow-hidden">
 
                 <!-- HEADER -->
                 <div class="${DS.headerPad} border-b flex justify-between items-center sticky top-0 bg-white/90 z-10">
@@ -870,7 +870,9 @@
                 </div>
 
                 <!-- FORM BODY -->
-                <form onsubmit="app.submitTransaction(event)" class="flex-1 overflow-y-auto ${DS.modalPad} ${DS.formGap}" id="tx-form">
+                <form onsubmit="app.submitTransaction(event)" 
+                class="flex-1 overflow-y-auto ${DS.modalPad} ${DS.formGap} flex flex-col items-stretch justify-start pt-2" 
+                id="tx-form">
 
                 <!-- TYPE -->
                 <div class="bg-slate-100 p-1 rounded-xl flex">
