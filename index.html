@@ -715,11 +715,615 @@
             let badgeHtml = ''; if (isPaidOff) badgeHtml = `<span class="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded border border-slate-200">LUNAS</span>`; else { if (hasPayable) badgeHtml += `<span class="bg-rose-50 text-rose-600 text-[9px] font-bold px-2 py-0.5 rounded border border-rose-100">Hutang: ${formatRupiah(group.totalPayable)}</span>`; if (hasReceivable) badgeHtml += `<span class="bg-emerald-50 text-emerald-600 text-[9px] font-bold px-2 py-0.5 rounded border border-emerald-100 ml-1">Piutang: ${formatRupiah(group.totalReceivable)}</span>`; } 
             return `<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:shadow-md group"><button onclick="app.toggleExpandPerson('${safeName}')" class="w-full p-4 flex items-center justify-between text-left focus:outline-none bg-white relative z-10"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 flex items-center justify-center font-extrabold text-sm group-hover:from-blue-600 group-hover:to-indigo-600 group-hover:text-white transition-all shadow-inner">${group.name.charAt(0).toUpperCase()}</div><div><h4 class="font-bold text-slate-800 text-sm">${group.name}</h4><div class="flex items-center mt-1 gap-1 flex-wrap">${badgeHtml}</div></div></div><div id="icon-${safeId}" class="text-slate-300 group-hover:text-blue-500 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"><i data-lucide="chevron-down" width="18"></i></div></button><div id="details-${safeId}" class="grid transition-all duration-300 ${isExpanded ? 'grid-rows-1' : 'grid-rows-0'}"><div class="overflow-hidden"><div class="border-t border-slate-50 bg-slate-50/50 p-3 space-y-2">${group.items.map(item => { const isPayable = item.type === 'payable'; const paid = item.paidAmount || 0; const total = item.amount; const remaining = total - paid; const isItemPaid = remaining <= 0; return `<div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-3 relative overflow-hidden"><div class="absolute left-0 top-0 bottom-0 w-1 ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}"></div><div class="flex justify-between items-start pl-2"><div><div class="flex items-center gap-1.5 mb-1"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded text-white ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'} tracking-wide">${isPayable ? 'HUTANG' : 'PIUTANG'}</span><span class="text-[9px] font-bold text-slate-400 flex items-center gap-0.5"><i data-lucide="calendar" width="9"></i> ${formatDate(item.date)}</span>${item.isOldDebt ? `<span class="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-bold border border-amber-200">LAMA</span>` : ''}</div><p class="text-[10px] text-slate-600 font-medium leading-relaxed italic">"${item.notes || 'Tanpa catatan'}"</p></div><div class="text-right"><p class="font-extrabold text-sm text-slate-800">${formatRupiah(total)}</p>${isItemPaid ? `<span class="text-[9px] text-emerald-600 font-bold flex items-center justify-end gap-0.5 bg-emerald-50 px-1.5 py-0.5 rounded-full mt-0.5 w-fit ml-auto border border-emerald-100"><i data-lucide="check-circle" width="8"></i> Lunas</span>` : `<p class="text-[9px] text-slate-400 font-medium mt-0.5">Sisa: <span class="font-bold text-slate-800">${formatRupiah(remaining)}</span></p>`}</div></div><div class="flex items-center gap-3 pt-1 pl-2"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner"><div class="h-full ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${(paid/total)*100}%"></div></div><div class="flex gap-2">${!isItemPaid ? `<button onclick="app.openPayDebtModal('${item.id}')" class="px-3 py-1.5 bg-slate-800 text-white text-[9px] font-bold rounded-lg hover:bg-slate-900 shadow-sm transition-transform hover:-translate-y-0.5">${isPayable ? 'Bayar' : 'Terima'}</button>` : ''}<button onclick="app.deleteDebt('${item.id}')" class="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><i data-lucide="trash-2" width="14"></i></button></div></div></div>`; }).join('')}</div></div></div></div>`; }).join('')}</div></div>`;
         };
-        window.app.renderSettingsModalOriginalHTML = function() { const {editingItem,settingsTab,settingsForm}=state; const isWallet=settingsTab==='wallets'; const displayBudget=settingsForm.budget?formatNumberString(String(settingsForm.budget)):''; const displayBalance=settingsForm.initialBalance?formatNumberString(String(settingsForm.initialBalance)):''; return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[1.5rem] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur z-10"><h3 class="font-extrabold text-lg text-slate-800">${editingItem?'Edit':'Tambah'} ${isWallet?'Dompet':'Kategori'}</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitSettings(event)" class="p-6 space-y-6 pb-10"><div><label class="label-text">Nama</label><input required type="text" id="input-name" value="${settingsForm.name}" oninput="app.updateForm('settingsForm','name',this.value)" class="input-field" placeholder="Contoh: Belanja Bulanan"></div>${isWallet?`<div><label class="label-text">Tipe Akun</label><div class="grid grid-cols-3 gap-2">${['Cash','Bank','E-Wallet'].map(t=>`<button type="button" onclick="app.updateForm('settingsForm','type','${t}')" class="btn-option ${settingsForm.type===t?'active':''}">${t}</button>`).join('')}</div></div><div><label class="label-text">Saldo Awal</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBalance}" oninput="app.handleNumberInput('settingsForm','initialBalance',this)" class="input-field pl-12" placeholder="0"></div></div>`:`<div><label class="label-text">Budget (Anggaran)</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBudget}" oninput="app.handleNumberInput('settingsForm','budget',this)" class="input-field pl-12" placeholder="0"></div><p class="text-[9px] text-slate-400 mt-1">Biarkan 0 jika tidak ada budget.</p></div>`}<div><label class="label-text">Pilih Warna</label><div class="flex flex-wrap gap-2">${colorOptions.map(c=>`<button type="button" onclick="app.updateForm('settingsForm','color','${c}')" class="w-8 h-8 rounded-full ${c} ${settingsForm.color===c?'ring-2 ring-offset-2 ring-slate-400 scale-110':''} transition-all"></button>`).join('')}</div></div><div><label class="label-text">Pilih Ikon</label><div class="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto pr-2 custom-scroll bg-slate-50 p-2 rounded-xl border border-slate-100">${iconOptions.map(i=>`<button type="button" onclick="app.updateForm('settingsForm','icon','${i}')" class="p-2 rounded-lg flex justify-center transition-all ${settingsForm.icon===i?'bg-blue-600 text-white shadow-md scale-105':'bg-white text-slate-400 hover:bg-slate-200'}"><i data-lucide="${i}" width="16"></i></button>`).join('')}</div></div><button type="submit" class="w-full btn-primary mt-2">Simpan</button></form></div></div>`; };
-        window.app.renderTxModalOriginalHTML = function() { const {txForm,data}=state; const isExpense=txForm.type==='expense'; const categories=isExpense?data.expense:data.income; const displayAmount=txForm.amount?formatNumberString(String(txForm.amount)):''; return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[1.5rem] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur z-10"><h3 class="font-extrabold text-lg text-slate-800">Catat Transaksi</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitTransaction(event)" class="p-6 space-y-6 pb-10"><div class="bg-slate-100 p-1 rounded-xl flex"><button type="button" onclick="app.setTxType('expense')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${isExpense?'bg-white text-rose-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">Pengeluaran</button><button type="button" onclick="app.setTxType('income')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${!isExpense?'bg-white text-emerald-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">Pemasukan</button></div><div><label class="label-text">Tanggal</label><input type="date" value="${txForm.date}" onchange="app.updateForm('txForm','date',this.value)" class="input-field"></div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('txForm','amount',this)" class="input-field pl-12 text-xl font-bold ${isExpense?'text-rose-600':'text-emerald-600'}" placeholder="0" autofocus></div></div><div><label class="label-text">Dompet Sumber</label>${data.wallets.length===0?`<p class="text-[10px] text-rose-500 font-bold bg-rose-50 p-2 rounded-lg">Buat dompet dulu.</p>`:`<div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" onclick="app.setTxWallet('${w.id}')" class="p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${txForm.walletId===w.id?'bg-blue-50 border-blue-500 ring-1 ring-blue-200':'bg-white border-slate-200 hover:bg-slate-50'}"><div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] ${w.color||'bg-slate-400'} shadow-sm"><i data-lucide="${w.icon||'wallet'}" width="12"></i></div><span class="text-xs font-bold text-slate-700 truncate">${w.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text mb-2 block">Kategori</label>${categories.length===0?`<p class="text-[10px] text-slate-400 bg-slate-50 p-3 rounded-lg text-center">Belum ada kategori.</p>`:`<div class="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto pr-1 custom-scroll">${categories.map(cat=>`<button type="button" onclick="app.selectCategory('${cat.id}')" class="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all border ${txForm.categoryId===cat.id?'bg-blue-50 border-blue-500 ring-1 ring-blue-200 shadow-sm':'bg-white border-slate-100 hover:bg-slate-50'}"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] ${cat.color} shadow-sm"><i data-lucide="${cat.icon}" width="14"></i></div><span class="text-[9px] font-bold text-slate-600 truncate w-full text-center leading-tight">${cat.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text">Catatan (Opsional)</label><textarea id="input-notes" rows="2" oninput="app.updateForm('txForm','notes',this.value)" class="input-field resize-none text-xs" placeholder="Tulis keterangan...">${txForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3 shadow-md">Simpan</button></form></div></div>`; };
-        window.app.renderTransferModalOriginalHTML = function() { const {transferForm,data}=state; const displayAmount=transferForm.amount?formatNumberString(String(transferForm.amount)):''; return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[1.5rem] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur z-10 rounded-t-[1.5rem]"><h3 class="font-extrabold text-lg text-slate-800">Transfer Aset</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitTransfer(event)" class="p-6 space-y-6 pb-10"><div><label class="label-text">Tanggal</label><input type="date" value="${transferForm.date}" onchange="app.updateForm('transferForm','date',this.value)" class="input-field"></div><div><label class="label-text mb-1">Dari (Sumber)</label><div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" onclick="app.setTransferWallet('fromWalletId','${w.id}')" class="p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${transferForm.fromWalletId===w.id?'bg-rose-50 border-rose-500 ring-1 ring-rose-200':'bg-white border-slate-200 hover:bg-slate-50'}"><div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] ${w.color||'bg-slate-400'}"><i data-lucide="${w.icon||'wallet'}" width="12"></i></div><span class="text-xs font-bold truncate text-slate-700">${w.name}</span></button>`).join('')}</div></div><div class="flex justify-center -my-3 relative z-10"><div class="bg-slate-100 p-2 rounded-full text-slate-400 border-4 border-white"><i data-lucide="arrow-down" width="16"></i></div></div><div><label class="label-text mb-1">Ke (Tujuan)</label><div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" onclick="app.setTransferWallet('toWalletId','${w.id}')" class="p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${transferForm.toWalletId===w.id?'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-200':'bg-white border-slate-200 hover:bg-slate-50'} ${w.id===transferForm.fromWalletId?'opacity-40 cursor-not-allowed':''}" ${w.id===transferForm.fromWalletId?'disabled':''}><div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] ${w.color||'bg-slate-400'}"><i data-lucide="${w.icon||'wallet'}" width="12"></i></div><span class="text-xs font-bold truncate text-slate-700">${w.name}</span></button>`).join('')}</div></div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('transferForm','amount',this)" class="input-field pl-12 text-xl font-bold text-slate-800" placeholder="0"></div></div><div><label class="label-text">Catatan</label><textarea id="input-notes" rows="2" oninput="app.updateForm('transferForm','notes',this.value)" class="input-field resize-none text-xs" placeholder="Keterangan transfer...">${transferForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3">Proses Transfer</button></form></div></div>`; };
-        window.app.renderDebtModalOriginalHTML = function() { const {debtForm, data}=state; const isPayable=debtForm.type==='payable'; const displayAmount=debtForm.amount?formatNumberString(String(debtForm.amount)):''; return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[1.5rem] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur z-10"><h3 class="font-extrabold text-lg text-slate-800">Catat Hutang/Piutang</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitDebt(event)" class="p-6 space-y-6 pb-10"><div class="bg-slate-100 p-1 rounded-xl flex"><button type="button" onclick="app.setDebtType('payable')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${isPayable?'bg-white text-rose-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">Hutang (Saya)</button><button type="button" onclick="app.setDebtType('receivable')" class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${!isPayable?'bg-white text-emerald-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">Piutang (Orang)</button></div><div><label class="label-text">Nama Pihak/Orang</label><div class="relative"><div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i data-lucide="user" width="16"></i></div><input required type="text" id="input-person" value="${debtForm.person}" oninput="app.updateForm('debtForm','person',this.value)" class="input-field pl-10" placeholder="Nama orang..."></div></div><div><label class="label-text">Nominal</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('debtForm','amount',this)" class="input-field pl-12 text-xl font-bold ${isPayable?'text-rose-600':'text-emerald-600'}" placeholder="0"></div></div>${!debtForm.isOldDebt?`<div><label class="label-text mb-1">${isPayable?'Masuk ke Dompet (Terima Uang)':'Sumber Dana (Keluarkan Uang)'}</label><div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" onclick="app.setDebtWallet('${w.id}')" class="p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${debtForm.walletId===w.id?'bg-blue-50 border-blue-500 ring-1 ring-blue-200':'bg-white border-slate-200 hover:bg-slate-50'}"><div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] ${w.color||'bg-slate-400'} shadow-sm"><i data-lucide="${w.icon||'wallet'}" width="12"></i></div><span class="text-xs font-bold truncate text-slate-700">${w.name}</span></button>`).join('')}</div></div>`:''} <div class="grid grid-cols-2 gap-3"><div><label class="label-text">Tanggal</label><input type="date" value="${debtForm.date}" onchange="app.updateForm('debtForm','date',this.value)" class="input-field"></div><div><label class="label-text">Jatuh Tempo</label><input type="date" value="${debtForm.dueDate}" onchange="app.updateForm('debtForm','dueDate',this.value)" class="input-field"></div></div><div class="flex items-center gap-3 bg-amber-50 p-3 rounded-xl border border-amber-100 checkbox-wrapper cursor-pointer hover:bg-amber-100/50 transition-colors" onclick="document.getElementById('input-old-debt').click()"><input type="checkbox" id="input-old-debt" onchange="app.toggleDebtOld(this.checked)" class="hidden" ${debtForm.isOldDebt?'checked':''}><div class="w-5 h-5 bg-white border-2 border-slate-300 rounded flex items-center justify-center transition-colors shadow-sm"><svg class="hidden w-3 h-3 text-white fill-current" viewBox="0 0 20 20"><path d="M0 11l2-2 5 5L18 3l2 2L7 18z"/></svg></div><div class="flex-1"><span class="block text-xs font-bold text-slate-800">Catatan Lama</span><span class="block text-[10px] text-slate-500 font-medium mt-0.5">Saldo dompet tidak akan berubah.</span></div></div><div><label class="label-text">Catatan</label><textarea id="input-notes" rows="2" oninput="app.updateForm('debtForm','notes',this.value)" class="input-field resize-none text-xs" placeholder="Keterangan tambahan...">${debtForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3">Simpan Catatan</button></form></div></div>`; };
-        window.app.renderPayDebtModalOriginalHTML = function() { const { payDebtForm, data, selectedDebt } = state; const isPayable = selectedDebt.type === 'payable'; const displayAmount = payDebtForm.amount ? formatNumberString(String(payDebtForm.amount)) : ''; const title = isPayable ? `Bayar Hutang` : `Terima Piutang`; const personName = selectedDebt.person; const remaining = selectedDebt.amount - (selectedDebt.paidAmount || 0); return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[1.5rem] w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in relative"><div class="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur z-10"><h3 class="font-extrabold text-lg text-slate-800">${title}</h3><button onclick="app.closeAllModals()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitDebtPayment(event)" class="p-6 space-y-6 pb-10"><div class="bg-blue-50 p-4 rounded-xl text-sm text-blue-900 border border-blue-100 shadow-sm"><p class="text-center font-bold text-base mb-3 text-blue-700">${personName}</p><div class="flex justify-between mb-1 text-xs"><span>Total Tagihan:</span> <span class="font-bold">${formatRupiah(selectedDebt.amount)}</span></div><div class="flex justify-between mb-2 text-xs"><span>Sudah Lunas:</span> <span class="font-bold text-emerald-600">${formatRupiah(selectedDebt.paidAmount || 0)}</span></div><div class="flex justify-between border-t border-blue-200 mt-2 pt-2"><span class="font-extrabold text-sm">Sisa:</span> <span class="font-extrabold text-sm text-rose-600">${formatRupiah(remaining)}</span></div></div><div><label class="label-text">Tanggal</label><input type="date" value="${payDebtForm.date}" onchange="app.updateForm('payDebtForm', 'date', this.value)" class="input-field"></div><div><label class="label-text mb-1">${isPayable ? 'Sumber Dana' : 'Masuk ke Dompet'}</label>${data.wallets.length === 0 ? `<p class="text-xs text-rose-500">Belum ada dompet.</p>` : `<div class="grid grid-cols-2 gap-2">${data.wallets.map(w => `<button type="button" onclick="app.setPayDebtWallet('${w.id}')" class="p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${payDebtForm.walletId === w.id ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-200' : 'bg-white border-slate-200 hover:bg-slate-50'}"><div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] ${w.color || 'bg-slate-400'}"><i data-lucide="${w.icon || 'wallet'}" width="12"></i></div><span class="text-xs font-bold truncate text-slate-700">${w.name}</span></button>`).join('')}</div>`}</div><div><label class="label-text">Nominal Pembayaran</label><div class="relative"><span class="currency-prefix text-lg top-2.5">Rp</span><input type="text" inputmode="numeric" value="${displayAmount}" oninput="app.handleNumberInput('payDebtForm', 'amount', this)" class="input-field pl-12 text-xl font-bold text-slate-800" placeholder="0" autofocus></div><p class="text-[10px] text-slate-400 mt-1 font-medium ml-1">Max: ${formatRupiah(remaining)}</p></div><div><label class="label-text">Catatan</label><textarea id="input-notes" rows="2" oninput="app.updateForm('payDebtForm', 'notes', this.value)" class="input-field resize-none text-xs" placeholder="Contoh: Cicilan ke-1...">${payDebtForm.notes}</textarea></div><button type="submit" class="w-full btn-primary py-3">Proses Pembayaran</button></form></div></div>`; };
+ /* =========================================================
+   COMPACT MODAL HELPER (GLOBAL)
+   Ubah spacing / radius / shadow cukup di sini saja
+========================================================= */
+window.app.compactModalWrapper = function(title, formHTML, onSubmit) {
+  return `
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-3">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+         onclick="app.closeAllModals()"></div>
+
+    <div class="bg-white rounded-[1.25rem] w-full max-w-md max-h-[90vh]
+                overflow-y-auto shadow-2xl animate-scale-in relative">
+
+      <!-- Header -->
+      <div class="p-4 border-b border-slate-100 flex justify-between items-center
+                  sticky top-0 bg-white/90 backdrop-blur z-10">
+        <h3 class="font-extrabold text-base text-slate-800">${title}</h3>
+        <button onclick="app.closeAllModals()"
+                class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
+          <i data-lucide="x" width="16"></i>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form onsubmit="${onSubmit}"
+            class="p-4 space-y-3 pb-6">
+        ${formHTML}
+      </form>
+
+    </div>
+  </div>`;
+};
+
+        /* =========================================================
+        1) SETTINGS MODAL (DOMPET / KATEGORI)
+        ========================================================= */
+        window.app.renderSettingsModalOriginalHTML = function() {
+        const { editingItem, settingsTab, settingsForm } = state;
+        const isWallet = settingsTab === 'wallets';
+        const displayBudget = settingsForm.budget
+            ? formatNumberString(String(settingsForm.budget))
+            : '';
+        const displayBalance = settingsForm.initialBalance
+            ? formatNumberString(String(settingsForm.initialBalance))
+            : '';
+
+        const title = `${editingItem ? 'Edit' : 'Tambah'} ${isWallet ? 'Dompet' : 'Kategori'}`;
+
+        const formHTML = `
+            <div>
+            <label class="label-text text-xs">Nama</label>
+            <input required
+                type="text"
+                value="${settingsForm.name}"
+                oninput="app.updateForm('settingsForm','name',this.value)"
+                class="input-field py-2"
+                placeholder="Contoh: Belanja Bulanan">
+            </div>
+
+            ${
+            isWallet
+                ? `
+                <div>
+                <label class="label-text text-xs">Tipe Akun</label>
+                <div class="grid grid-cols-3 gap-1.5">
+                    ${['Cash','Bank','E-Wallet'].map(t => `
+                    <button type="button"
+                        onclick="app.updateForm('settingsForm','type','${t}')"
+                        class="py-1.5 rounded-lg text-xs font-bold transition-all
+                        ${settingsForm.type === t
+                        ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-200'
+                        : 'bg-slate-100 text-slate-600'}">
+                        ${t}
+                    </button>
+                    `).join('')}
+                </div>
+                </div>
+
+                <div>
+                <label class="label-text text-xs">Saldo Awal</label>
+                <div class="relative">
+                    <span class="currency-prefix top-2 text-sm">Rp</span>
+                    <input type="text"
+                    inputmode="numeric"
+                    value="${displayBalance}"
+                    oninput="app.handleNumberInput('settingsForm','initialBalance',this)"
+                    class="input-field pl-10 py-2"
+                    placeholder="0">
+                </div>
+                </div>
+                `
+                : `
+                <div>
+                <label class="label-text text-xs">Budget</label>
+                <div class="relative">
+                    <span class="currency-prefix top-2 text-sm">Rp</span>
+                    <input type="text"
+                    inputmode="numeric"
+                    value="${displayBudget}"
+                    oninput="app.handleNumberInput('settingsForm','budget',this)"
+                    class="input-field pl-10 py-2"
+                    placeholder="0">
+                </div>
+                </div>
+                `
+            }
+
+            <div>
+            <label class="label-text text-xs">Warna</label>
+            <div class="flex flex-wrap gap-1.5">
+                ${colorOptions.map(c => `
+                <button type="button"
+                    onclick="app.updateForm('settingsForm','color','${c}')"
+                    class="w-7 h-7 rounded-full ${c}
+                    ${settingsForm.color === c ? 'ring-2 ring-slate-400 scale-110' : ''}">
+                </button>
+                `).join('')}
+            </div>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Ikon</label>
+            <div class="grid grid-cols-6 gap-1.5 max-h-28 overflow-y-auto
+                        bg-slate-50 p-2 rounded-lg">
+                ${iconOptions.map(i => `
+                <button type="button"
+                    onclick="app.updateForm('settingsForm','icon','${i}')"
+                    class="p-1.5 rounded-md transition-all
+                    ${settingsForm.icon === i
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-slate-400'}">
+                    <i data-lucide="${i}" width="14"></i>
+                </button>
+                `).join('')}
+            </div>
+            </div>
+
+            <button type="submit"
+            class="w-full btn-primary py-2.5 text-sm">
+            Simpan
+            </button>
+        `;
+
+        return app.compactModalWrapper(title, formHTML, "app.submitSettings(event)");
+        };
+
+        /* =========================================================
+        2) TRANSAKSI MODAL
+        ========================================================= */
+        window.app.renderTxModalOriginalHTML = function() {
+        const { txForm, data } = state;
+        const isExpense = txForm.type === 'expense';
+        const categories = isExpense ? data.expense : data.income;
+        const displayAmount = txForm.amount
+            ? formatNumberString(String(txForm.amount))
+            : '';
+
+        const formHTML = `
+            <div class="bg-slate-100 p-1 rounded-xl flex">
+            <button type="button"
+                onclick="app.setTxType('expense')"
+                class="flex-1 py-2 rounded-lg text-xs font-bold transition-all
+                ${isExpense
+                ? 'bg-white text-rose-600 shadow-sm'
+                : 'text-slate-500'}">
+                Pengeluaran
+            </button>
+            <button type="button"
+                onclick="app.setTxType('income')"
+                class="flex-1 py-2 rounded-lg text-xs font-bold transition-all
+                ${!isExpense
+                ? 'bg-white text-emerald-600 shadow-sm'
+                : 'text-slate-500'}">
+                Pemasukan
+            </button>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Tanggal</label>
+            <input type="date"
+                value="${txForm.date}"
+                onchange="app.updateForm('txForm','date',this.value)"
+                class="input-field py-2">
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Nominal</label>
+            <div class="relative">
+                <span class="currency-prefix top-2 text-sm">Rp</span>
+                <input type="text"
+                inputmode="numeric"
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('txForm','amount',this)"
+                class="input-field pl-10 text-lg font-bold
+                ${isExpense ? 'text-rose-600' : 'text-emerald-600'}"
+                placeholder="0"
+                autofocus>
+            </div>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Dompet Sumber</label>
+            ${
+                data.wallets.length === 0
+                ? `<p class="text-[10px] text-rose-500 bg-rose-50 p-2 rounded-lg">
+                    Buat dompet dulu.
+                    </p>`
+                : `
+                <div class="grid grid-cols-2 gap-1.5">
+                    ${data.wallets.map(w => `
+                    <button type="button"
+                        onclick="app.setTxWallet('${w.id}')"
+                        class="p-2 rounded-lg border flex items-center gap-2
+                        ${txForm.walletId === w.id
+                        ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-200'
+                        : 'bg-white border-slate-200'}">
+
+                        <div class="w-5 h-5 rounded-md flex items-center justify-center
+                                    text-white text-[9px] ${w.color || 'bg-slate-400'}">
+                        <i data-lucide="${w.icon || 'wallet'}" width="11"></i>
+                        </div>
+                        <span class="text-[11px] font-bold truncate">
+                        ${w.name}
+                        </span>
+                    </button>
+                    `).join('')}
+                </div>`
+            }
+            </div>
+
+            <div>
+            <label class="label-text text-xs block mb-1">Kategori</label>
+            ${
+                categories.length === 0
+                ? `<p class="text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg text-center">
+                    Belum ada kategori.
+                    </p>`
+                : `
+                <div class="grid grid-cols-4 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    ${categories.map(cat => `
+                    <button type="button"
+                        onclick="app.selectCategory('${cat.id}')"
+                        class="flex flex-col items-center gap-1 p-1.5 rounded-lg border
+                        ${txForm.categoryId === cat.id
+                        ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-200'
+                        : 'bg-white border-slate-100'}">
+
+                        <div class="w-7 h-7 rounded-md flex items-center justify-center
+                                    text-white text-[9px] ${cat.color}">
+                        <i data-lucide="${cat.icon}" width="12"></i>
+                        </div>
+
+                        <span class="text-[9px] font-bold truncate w-full text-center">
+                        ${cat.name}
+                        </span>
+                    </button>
+                    `).join('')}
+                </div>`
+            }
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Catatan</label>
+            <textarea rows="2"
+                oninput="app.updateForm('txForm','notes',this.value)"
+                class="input-field resize-none text-xs py-2"
+                placeholder="Tulis keterangan...">${txForm.notes}</textarea>
+            </div>
+
+            <button type="submit"
+            class="w-full btn-primary py-2.5 text-sm">
+            Simpan
+            </button>
+        `;
+
+        return app.compactModalWrapper(
+            "Catat Transaksi",
+            formHTML,
+            "app.submitTransaction(event)"
+        );
+        };
+
+        /* =========================================================
+        3) TRANSFER MODAL
+        ========================================================= */
+        window.app.renderTransferModalOriginalHTML = function() {
+        const { transferForm, data } = state;
+        const displayAmount = transferForm.amount
+            ? formatNumberString(String(transferForm.amount))
+            : '';
+
+        const formHTML = `
+            <div>
+            <label class="label-text text-xs">Tanggal</label>
+            <input type="date"
+                value="${transferForm.date}"
+                onchange="app.updateForm('transferForm','date',this.value)"
+                class="input-field py-2">
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Dari</label>
+            <div class="grid grid-cols-2 gap-1.5">
+                ${data.wallets.map(w => `
+                <button type="button"
+                    onclick="app.setTransferWallet('fromWalletId','${w.id}')"
+                    class="p-2 rounded-lg border flex items-center gap-2
+                    ${transferForm.fromWalletId === w.id
+                    ? 'bg-rose-50 border-rose-500 ring-1 ring-rose-200'
+                    : 'bg-white border-slate-200'}">
+
+                    <div class="w-5 h-5 rounded-md flex items-center justify-center
+                                text-white text-[9px] ${w.color || 'bg-slate-400'}">
+                    <i data-lucide="${w.icon || 'wallet'}" width="11"></i>
+                    </div>
+                    <span class="text-[11px] font-bold truncate">${w.name}</span>
+                </button>
+                `).join('')}
+            </div>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Ke</label>
+            <div class="grid grid-cols-2 gap-1.5">
+                ${data.wallets.map(w => `
+                <button type="button"
+                    onclick="app.setTransferWallet('toWalletId','${w.id}')"
+                    ${w.id === transferForm.fromWalletId ? 'disabled' : ''}
+                    class="p-2 rounded-lg border flex items-center gap-2
+                    ${transferForm.toWalletId === w.id
+                    ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-200'
+                    : 'bg-white border-slate-200'}
+                    ${w.id === transferForm.fromWalletId
+                    ? 'opacity-40 cursor-not-allowed'
+                    : ''}">
+
+                    <div class="w-5 h-5 rounded-md flex items-center justify-center
+                                text-white text-[9px] ${w.color || 'bg-slate-400'}">
+                    <i data-lucide="${w.icon || 'wallet'}" width="11"></i>
+                    </div>
+                    <span class="text-[11px] font-bold truncate">${w.name}</span>
+                </button>
+                `).join('')}
+            </div>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Nominal</label>
+            <div class="relative">
+                <span class="currency-prefix top-2 text-sm">Rp</span>
+                <input type="text"
+                inputmode="numeric"
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('transferForm','amount',this)"
+                class="input-field pl-10 text-lg font-bold"
+                placeholder="0">
+            </div>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Catatan</label>
+            <textarea rows="2"
+                oninput="app.updateForm('transferForm','notes',this.value)"
+                class="input-field resize-none text-xs py-2"
+                placeholder="Keterangan transfer...">${transferForm.notes}</textarea>
+            </div>
+
+            <button type="submit"
+            class="w-full btn-primary py-2.5 text-sm">
+            Proses Transfer
+            </button>
+        `;
+
+        return app.compactModalWrapper(
+            "Transfer Aset",
+            formHTML,
+            "app.submitTransfer(event)"
+        );
+        };
+
+        /* =========================================================
+        4) HUTANG / PIUTANG MODAL
+        ========================================================= */
+        window.app.renderDebtModalOriginalHTML = function() {
+        const { debtForm, data } = state;
+        const isPayable = debtForm.type === 'payable';
+        const displayAmount = debtForm.amount
+            ? formatNumberString(String(debtForm.amount))
+            : '';
+
+        const formHTML = `
+            <div class="bg-slate-100 p-1 rounded-xl flex">
+            <button type="button"
+                onclick="app.setDebtType('payable')"
+                class="flex-1 py-2 rounded-lg text-xs font-bold
+                ${isPayable ? 'bg-white text-rose-600' : 'text-slate-500'}">
+                Hutang
+            </button>
+            <button type="button"
+                onclick="app.setDebtType('receivable')"
+                class="flex-1 py-2 rounded-lg text-xs font-bold
+                ${!isPayable ? 'bg-white text-emerald-600' : 'text-slate-500'}">
+                Piutang
+            </button>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Nama Orang</label>
+            <input type="text"
+                value="${debtForm.person}"
+                oninput="app.updateForm('debtForm','person',this.value)"
+                class="input-field py-2"
+                placeholder="Nama...">
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Nominal</label>
+            <div class="relative">
+                <span class="currency-prefix top-2 text-sm">Rp</span>
+                <input type="text"
+                inputmode="numeric"
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('debtForm','amount',this)"
+                class="input-field pl-10 text-lg font-bold
+                ${isPayable ? 'text-rose-600' : 'text-emerald-600'}"
+                placeholder="0">
+            </div>
+            </div>
+
+            ${
+            !debtForm.isOldDebt
+                ? `
+                <div>
+                <label class="label-text text-xs">
+                    ${isPayable ? 'Masuk ke Dompet' : 'Sumber Dana'}
+                </label>
+                <div class="grid grid-cols-2 gap-1.5">
+                    ${data.wallets.map(w => `
+                    <button type="button"
+                        onclick="app.setDebtWallet('${w.id}')"
+                        class="p-2 rounded-lg border flex items-center gap-2
+                        ${debtForm.walletId === w.id
+                        ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-200'
+                        : 'bg-white border-slate-200'}">
+
+                        <div class="w-5 h-5 rounded-md flex items-center justify-center
+                                    text-white text-[9px] ${w.color || 'bg-slate-400'}">
+                        <i data-lucide="${w.icon || 'wallet'}" width="11"></i>
+                        </div>
+                        <span class="text-[11px] font-bold truncate">${w.name}</span>
+                    </button>
+                    `).join('')}
+                </div>
+                </div>
+                `
+                : ''
+            }
+
+            <div class="grid grid-cols-2 gap-1.5">
+            <div>
+                <label class="label-text text-xs">Tanggal</label>
+                <input type="date"
+                value="${debtForm.date}"
+                onchange="app.updateForm('debtForm','date',this.value)"
+                class="input-field py-2">
+            </div>
+            <div>
+                <label class="label-text text-xs">Jatuh Tempo</label>
+                <input type="date"
+                value="${debtForm.dueDate}"
+                onchange="app.updateForm('debtForm','dueDate',this.value)"
+                class="input-field py-2">
+            </div>
+            </div>
+
+            <div class="bg-amber-50 p-2 rounded-lg border border-amber-100 cursor-pointer"
+            onclick="document.getElementById('input-old-debt').click()">
+            <input type="checkbox"
+                id="input-old-debt"
+                onchange="app.toggleDebtOld(this.checked)"
+                class="hidden"
+                ${debtForm.isOldDebt ? 'checked' : ''}>
+            <span class="text-[10px] font-bold">Catatan Lama</span>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Catatan</label>
+            <textarea rows="2"
+                oninput="app.updateForm('debtForm','notes',this.value)"
+                class="input-field resize-none text-xs py-2"
+                placeholder="Keterangan...">${debtForm.notes}</textarea>
+            </div>
+
+            <button type="submit"
+            class="w-full btn-primary py-2.5 text-sm">
+            Simpan Catatan
+            </button>
+        `;
+
+        return app.compactModalWrapper(
+            "Catat Hutang / Piutang",
+            formHTML,
+            "app.submitDebt(event)"
+        );
+        };
+
+        /* =========================================================
+        5) BAYAR HUTANG / TERIMA PIUTANG
+        ========================================================= */
+        window.app.renderPayDebtModalOriginalHTML = function() {
+        const { payDebtForm, data, selectedDebt } = state;
+        const isPayable = selectedDebt.type === 'payable';
+        const remaining = selectedDebt.amount - (selectedDebt.paidAmount || 0);
+        const displayAmount = payDebtForm.amount
+            ? formatNumberString(String(payDebtForm.amount))
+            : '';
+
+        const title = isPayable ? "Bayar Hutang" : "Terima Piutang";
+
+        const formHTML = `
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs">
+            <div class="font-bold text-center mb-1">
+                ${selectedDebt.person}
+            </div>
+            <div class="flex justify-between">
+                <span>Total:</span>
+                <span class="font-bold">${formatRupiah(selectedDebt.amount)}</span>
+            </div>
+            <div class="flex justify-between">
+                <span>Lunas:</span>
+                <span class="font-bold text-emerald-600">
+                ${formatRupiah(selectedDebt.paidAmount || 0)}
+                </span>
+            </div>
+            <div class="flex justify-between border-t mt-1 pt-1">
+                <span>Sisa:</span>
+                <span class="font-bold text-rose-600">
+                ${formatRupiah(remaining)}
+                </span>
+            </div>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Tanggal</label>
+            <input type="date"
+                value="${payDebtForm.date}"
+                onchange="app.updateForm('payDebtForm','date',this.value)"
+                class="input-field py-2">
+            </div>
+
+            <div>
+            <label class="label-text text-xs">
+                ${isPayable ? 'Sumber Dana' : 'Masuk ke Dompet'}
+            </label>
+            <div class="grid grid-cols-2 gap-1.5">
+                ${data.wallets.map(w => `
+                <button type="button"
+                    onclick="app.setPayDebtWallet('${w.id}')"
+                    class="p-2 rounded-lg border flex items-center gap-2
+                    ${payDebtForm.walletId === w.id
+                    ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-200'
+                    : 'bg-white border-slate-200'}">
+
+                    <div class="w-5 h-5 rounded-md flex items-center justify-center
+                                text-white text-[9px] ${w.color || 'bg-slate-400'}">
+                    <i data-lucide="${w.icon || 'wallet'}" width="11"></i>
+                    </div>
+                    <span class="text-[11px] font-bold truncate">${w.name}</span>
+                </button>
+                `).join('')}
+            </div>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Nominal</label>
+            <div class="relative">
+                <span class="currency-prefix top-2 text-sm">Rp</span>
+                <input type="text"
+                inputmode="numeric"
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('payDebtForm','amount',this)"
+                class="input-field pl-10 text-lg font-bold"
+                placeholder="0">
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">
+                Max: ${formatRupiah(remaining)}
+            </p>
+            </div>
+
+            <div>
+            <label class="label-text text-xs">Catatan</label>
+            <textarea rows="2"
+                oninput="app.updateForm('payDebtForm','notes',this.value)"
+                class="input-field resize-none text-xs py-2"
+                placeholder="Keterangan...">${payDebtForm.notes}</textarea>
+            </div>
+
+            <button type="submit"
+            class="w-full btn-primary py-2.5 text-sm">
+            Proses Pembayaran
+            </button>
+        `;
+
+        return app.compactModalWrapper(
+            title,
+            formHTML,
+            "app.submitDebtPayment(event)"
+        );
+        };
 
         window.app.renderAllModals = function() {
             if (state.isSettingsModalOpen) return window.app.renderSettingsModalOriginalHTML();
