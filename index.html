@@ -570,6 +570,7 @@
             
             return `
                 <div class="space-y-6">
+                    <!-- Filter Section -->
                     <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
                         <div class="flex flex-col gap-1.5 w-full md:w-auto">
                             <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider ml-1">Rentang Tanggal</span>
@@ -602,6 +603,8 @@
                             </select>
                         </div>
                     </div>
+
+                    <!-- KPI Cards -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl text-white shadow-lg shadow-slate-200 relative overflow-hidden">
                             <div class="relative z-10">
@@ -625,113 +628,139 @@
                             <h3 class="text-xl sm:text-2xl font-bold text-slate-800">${formatRupiah(totalExpense)}</h3>
                         </div>
                     </div>
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div class="px-5 py-4 border-b border-slate-50 flex items-center gap-2">
-                            <div class="w-1 h-4 bg-blue-600 rounded-full"></div>
-                            <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2"><i data-lucide="credit-card" width="16" class="text-slate-400"></i> Dompet & Akun</h3>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm text-left">
-                                <thead class="text-[10px] text-slate-400 font-bold uppercase bg-slate-50/50"><tr><th class="px-5 py-3">Nama Akun</th><th class="px-5 py-3">Tipe</th><th class="px-5 py-3 text-right">Saldo</th><th class="px-5 py-3 text-center">Aktif?</th></tr></thead>
-                                <tbody class="divide-y divide-slate-50">
-                                    ${wallets.map(w => `<tr class="hover:bg-slate-50/80 transition-colors"><td class="px-5 py-3 font-bold text-slate-700 flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm text-xs ${w.color}"><i data-lucide="${w.icon}" width="14"></i></div>${w.name}</td><td class="px-5 py-3"><span class="px-2 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500 border border-slate-200">${w.type}</span></td><td class="px-5 py-3 text-right font-bold text-slate-800">${formatRupiah(walletBalances[w.id])}</td><td class="px-5 py-3 text-center"><button onclick="app.toggleWalletExclusion('${w.id}', ${w.isExcluded ? 'true' : 'false'})" class="w-9 h-5 rounded-full transition-colors relative ${!w.isExcluded ? 'bg-emerald-500' : 'bg-slate-300'}"><div class="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all ${!w.isExcluded ? 'left-[calc(100%-4px-14px)]' : 'left-[4px]'} shadow-sm"></div></button></td></tr>`).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-100 h-fit flex flex-col">
-                            <div class="p-5 border-b border-slate-50 flex flex-wrap justify-between items-center gap-3">
-                                <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2"><i data-lucide="list-checks" width="16" class="text-slate-400"></i> Riwayat Transaksi</h3>
-                                <div class="flex gap-2">
-                                     <button onclick="app.openTransferModal()" class="px-3 py-1.5 bg-slate-50 text-slate-600 text-[10px] font-bold rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1 border border-slate-100"><i data-lucide="arrow-right-left" width="12"></i> Transfer</button>
-                                    <button onclick="app.openTransactionModal()" class="px-3 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm"><i data-lucide="plus" width="12"></i> Baru</button>
+
+                    <!-- Main Dashboard Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        
+                        <!-- Left Column: Wallets & Charts -->
+                        <div class="lg:col-span-7 space-y-6">
+                            
+                            <!-- Wallets & Accounts (Moved Here) -->
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                <div class="px-5 py-4 border-b border-slate-50 flex items-center gap-2">
+                                    <div class="w-1 h-4 bg-blue-600 rounded-full"></div>
+                                    <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2"><i data-lucide="credit-card" width="16" class="text-slate-400"></i> Dompet & Akun</h3>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left">
+                                        <thead class="text-[10px] text-slate-400 font-bold uppercase bg-slate-50/50"><tr><th class="px-5 py-3">Nama Akun</th><th class="px-5 py-3">Tipe</th><th class="px-5 py-3 text-right">Saldo</th><th class="px-5 py-3 text-center">Aktif?</th></tr></thead>
+                                        <tbody class="divide-y divide-slate-50">
+                                            ${wallets.map(w => `<tr class="hover:bg-slate-50/80 transition-colors"><td class="px-5 py-3 font-bold text-slate-700 flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm text-xs ${w.color}"><i data-lucide="${w.icon}" width="14"></i></div>${w.name}</td><td class="px-5 py-3"><span class="px-2 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500 border border-slate-200">${w.type}</span></td><td class="px-5 py-3 text-right font-bold text-slate-800">${formatRupiah(walletBalances[w.id])}</td><td class="px-5 py-3 text-center"><button onclick="app.toggleWalletExclusion('${w.id}', ${w.isExcluded ? 'true' : 'false'})" class="w-9 h-5 rounded-full transition-colors relative ${!w.isExcluded ? 'bg-emerald-500' : 'bg-slate-300'}"><div class="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all ${!w.isExcluded ? 'left-[calc(100%-4px-14px)]' : 'left-[4px]'} shadow-sm"></div></button></td></tr>`).join('')}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
-                            <div class="divide-y divide-slate-50 max-h-[600px] overflow-y-auto custom-scroll">
-                                ${filteredTx.length === 0 ? `<div class="p-8 text-center text-slate-400 text-xs font-medium">Belum ada data.</div>` : ''}
-                                ${filteredTx.map(tx => {
-                                    const isExpense = tx.type === 'expense';
-                                    let name = 'Transaksi', icon = 'circle', color = 'bg-slate-400';
-                                    let walletInfo = '';
 
-                                    if(tx.type === 'transfer') {
-                                        name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-500';
-                                        const fromWallet = wallets.find(w => w.id === tx.fromWalletId)?.name || '?';
-                                        const toWallet = wallets.find(w => w.id === tx.toWalletId)?.name || '?';
-                                        walletInfo = `${fromWallet} → ${toWallet}`;
-                                    }
-                                    else if(tx.isDebtPayment) {
-                                        name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check-circle'; color = isExpense ? 'bg-rose-500' : 'bg-emerald-500';
-                                        walletInfo = wallets.find(w => w.id === tx.walletId)?.name || '-';
-                                    }
-                                    else {
-                                        const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId);
-                                        if(cat) { name = cat.name; icon = cat.icon; color = cat.color; }
-                                        walletInfo = wallets.find(w => w.id === tx.walletId)?.name || '-';
-                                    }
-
-                                    return `
-                                    <div class="p-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
-                                        <div class="flex gap-3">
-                                            <!-- Icon -->
-                                            <div class="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-[10px] shadow-sm ${color} mt-0.5">
-                                                <i data-lucide="${icon}" width="16"></i>
-                                            </div>
-
-                                            <!-- Left Info (Main) -->
-                                            <div class="flex-1 min-w-0 flex flex-col justify-center">
-                                                <!-- Title -->
-                                                <p class="font-bold text-slate-700 text-xs truncate leading-tight mb-0.5">${name}</p>
-                                                
-                                                <!-- Note (Replacing Date Position) -->
-                                                <p class="text-[10px] text-slate-500 truncate leading-tight mb-0.5 flex items-center gap-1">
-                                                    <i data-lucide="sticky-note" width="8" class="text-slate-300"></i>
-                                                    ${tx.notes || '<span class="italic text-slate-300">Tanpa catatan</span>'}
-                                                </p>
-
-                                                <!-- Wallet (Replacing Note Position) -->
-                                                <div class="flex items-center gap-1 text-[9px] text-slate-400 font-medium">
-                                                    <i data-lucide="wallet" width="10"></i>
-                                                    <span class="truncate">${walletInfo}</span>
-                                                </div>
-                                            </div>
-
-                                            <!-- Right Info (Meta & Actions) -->
-                                            <div class="flex flex-col items-end justify-center gap-0.5 pl-2">
-                                                <!-- Date (Moved Above Nominal) -->
-                                                <span class="text-[9px] text-slate-400 font-medium whitespace-nowrap">${formatDate(tx.date)}</span>
-                                                
-                                                <!-- Nominal -->
-                                                <span class="font-bold text-xs ${isExpense ? 'text-rose-600' : 'text-emerald-600'} whitespace-nowrap">
-                                                    ${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}
-                                                </span>
-
-                                                <!-- Actions (Moved Below Nominal) -->
-                                                <div class="flex items-center gap-3 mt-0.5">
-                                                    <button onclick="app.editTransaction('${tx.id}')" class="text-slate-300 hover:text-blue-600 transition-colors" title="Edit">
-                                                        <i data-lucide="edit-2" width="12"></i>
-                                                    </button>
-                                                    <button onclick="app.deleteTransaction('${tx.id}')" class="text-slate-300 hover:text-rose-600 transition-colors" title="Hapus">
-                                                        <i data-lucide="trash-2" width="12"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                        <div class="lg:col-span-7 space-y-6">
+                            <!-- Budget Analysis (Moved Here) -->
                             <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
                                 <div class="flex justify-between items-end mb-4 relative z-10"><div><p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5"><i data-lucide="bar-chart-3" width="14"></i> Analisa Budget</p><h3 class="text-lg font-bold text-slate-800">${formatRupiah(totalBudgetSpent)} <span class="text-slate-400 text-xs font-medium">dari ${formatRupiah(totalBudget)}</span></h3></div><span class="text-2xl font-black ${totalBudgetPercent > 100 ? 'text-rose-600' : 'text-blue-600'}">${totalBudgetPercent.toFixed(0)}%</span></div>
                                 <div class="h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner relative z-10"><div class="h-full ${totalBudgetPercent > 100 ? 'bg-rose-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'} transition-all duration-1000 ease-out relative" style="width: ${Math.min(100, totalBudgetPercent)}%"></div></div>
                             </div>
+
+                            <!-- Details Grid (Moved Here) -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-fit"><h4 class="font-bold text-slate-800 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><i data-lucide="list" width="14"></i></div> Rincian Kategori</h4><div class="space-y-4">${budgetData.length === 0 ? `<p class="text-xs text-slate-400 text-center py-4">Belum ada budget.</p>` : ''}${budgetData.map(cat => { const isOver = cat.spent > cat.budget && cat.budget > 0; const percent = Math.min(100, cat.percent); let barColor = 'bg-blue-500'; if (percent > 75) barColor = 'bg-amber-500'; if (percent >= 100) barColor = 'bg-rose-500'; return `<div><div class="flex justify-between text-xs mb-1.5"><span class="font-bold text-slate-700 text-xs">${cat.name}</span><span class="${isOver ? 'text-rose-600 font-bold' : 'text-slate-500 font-medium'}">${Math.round(cat.percent)}%</span></div><div class="h-2 bg-slate-100 rounded-full overflow-hidden mb-1"><div class="h-full ${barColor}" style="width: ${cat.budget > 0 ? percent : 0}%"></div></div><div class="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider"><span>Pakai: ${formatRupiah(cat.spent)}</span><span>Batas: ${formatRupiah(cat.budget)}</span></div></div>`; }).join('')}</div></div>
                                 <div class="space-y-6"><div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><h4 class="font-bold text-slate-800 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="pie-chart" width="14"></i></div> Top Kategori</h4><div class="space-y-3">${topCategories.map(cat => `<div class="flex items-center justify-between text-xs font-medium"><div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full ${cat.color} ring-2 ring-white shadow-sm"></div><span class="text-slate-600 font-bold text-xs">${cat.name}</span></div><span class="font-bold text-slate-800 text-xs">${formatRupiah(cat.spent)}</span></div>`).join('')}${topCategories.length === 0 ? `<p class="text-xs text-slate-400">Belum ada data.</p>` : ''}</div></div><div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><h4 class="font-bold text-slate-800 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 bg-rose-50 text-rose-600 rounded-lg"><i data-lucide="trending-down" width="14"></i></div> Pengeluaran Terbesar</h4><div class="space-y-3">${topExpenses.map(tx => { const cat = expense.find(c => c.id === tx.categoryId); return `<div class="flex items-center justify-between text-xs pb-3 border-b border-slate-50 last:border-0 last:pb-0"><div><p class="font-bold text-slate-700 text-xs">${cat ? cat.name : 'Lainnya'}</p><p class="text-slate-400 text-[10px] mt-0.5 font-medium bg-slate-50 w-fit px-1.5 py-0.5 rounded">${formatDate(tx.date)}</p></div><span class="font-bold text-rose-600 text-xs">${formatRupiah(tx.amount)}</span></div>`; }).join('')}${topExpenses.length === 0 ? `<p class="text-xs text-slate-400">Belum ada data.</p>` : ''}</div></div></div>
                             </div>
                         </div>
+
+                        <!-- Right Column: Transaction History -->
+                        <div class="lg:col-span-5">
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 h-full flex flex-col">
+                                <div class="p-5 border-b border-slate-50 flex flex-wrap justify-between items-center gap-3">
+                                    <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2"><i data-lucide="list-checks" width="16" class="text-slate-400"></i> Riwayat Transaksi</h3>
+                                    <!-- Buttons Removed from Header -->
+                                </div>
+                                <div class="flex-1 overflow-y-auto custom-scroll" style="min-height: 500px;">
+                                    ${filteredTx.length === 0 ? `<div class="p-8 text-center text-slate-400 text-xs font-medium">Belum ada data.</div>` : ''}
+                                    ${filteredTx.map(tx => {
+                                        const isExpense = tx.type === 'expense';
+                                        let name = 'Transaksi', icon = 'circle', color = 'bg-slate-400';
+                                        let walletInfo = '';
+
+                                        if(tx.type === 'transfer') {
+                                            name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-500';
+                                            const fromWallet = wallets.find(w => w.id === tx.fromWalletId)?.name || '?';
+                                            const toWallet = wallets.find(w => w.id === tx.toWalletId)?.name || '?';
+                                            walletInfo = `${fromWallet} → ${toWallet}`;
+                                        }
+                                        else if(tx.isDebtPayment) {
+                                            name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check-circle'; color = isExpense ? 'bg-rose-500' : 'bg-emerald-500';
+                                            walletInfo = wallets.find(w => w.id === tx.walletId)?.name || '-';
+                                        }
+                                        else {
+                                            const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId);
+                                            if(cat) { name = cat.name; icon = cat.icon; color = cat.color; }
+                                            walletInfo = wallets.find(w => w.id === tx.walletId)?.name || '-';
+                                        }
+
+                                        return `
+                                        <div class="p-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                                            <div class="flex gap-3">
+                                                <!-- Icon -->
+                                                <div class="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-[10px] shadow-sm ${color} mt-0.5">
+                                                    <i data-lucide="${icon}" width="16"></i>
+                                                </div>
+
+                                                <!-- Left Info (Main) -->
+                                                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                                    <!-- Title -->
+                                                    <p class="font-bold text-slate-700 text-xs truncate leading-tight mb-0.5">${name}</p>
+                                                    
+                                                    <!-- Note (Replacing Date Position) -->
+                                                    <p class="text-[10px] text-slate-500 truncate leading-tight mb-0.5 flex items-center gap-1">
+                                                        <i data-lucide="sticky-note" width="8" class="text-slate-300"></i>
+                                                        ${tx.notes || '<span class="italic text-slate-300">Tanpa catatan</span>'}
+                                                    </p>
+
+                                                    <!-- Wallet (Replacing Note Position) -->
+                                                    <div class="flex items-center gap-1 text-[9px] text-slate-400 font-medium">
+                                                        <i data-lucide="wallet" width="10"></i>
+                                                        <span class="truncate">${walletInfo}</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Right Info (Meta & Actions) -->
+                                                <div class="flex flex-col items-end justify-center gap-0.5 pl-2">
+                                                    <!-- Date (Moved Above Nominal) -->
+                                                    <span class="text-[9px] text-slate-400 font-medium whitespace-nowrap">${formatDate(tx.date)}</span>
+                                                    
+                                                    <!-- Nominal -->
+                                                    <span class="font-bold text-xs ${isExpense ? 'text-rose-600' : 'text-emerald-600'} whitespace-nowrap">
+                                                        ${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}
+                                                    </span>
+
+                                                    <!-- Actions (Moved Below Nominal) -->
+                                                    <div class="flex items-center gap-3 mt-0.5">
+                                                        <button onclick="app.editTransaction('${tx.id}')" class="text-slate-300 hover:text-blue-600 transition-colors" title="Edit">
+                                                            <i data-lucide="edit-2" width="12"></i>
+                                                        </button>
+                                                        <button onclick="app.deleteTransaction('${tx.id}')" class="text-slate-300 hover:text-rose-600 transition-colors" title="Hapus">
+                                                            <i data-lucide="trash-2" width="12"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Floating Action Buttons (Fixed Bottom Right) -->
+                    <div class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
+                        <!-- Transfer Button (Secondary) -->
+                        <button onclick="app.openTransferModal()" class="pointer-events-auto w-12 h-12 bg-white text-slate-600 rounded-full shadow-lg shadow-slate-200 border border-slate-100 flex items-center justify-center hover:bg-slate-50 hover:scale-110 transition-all group relative" title="Transfer">
+                            <i data-lucide="arrow-right-left" width="20"></i>
+                            <span class="absolute right-14 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Transfer</span>
+                        </button>
+
+                        <!-- Transaction Button (Primary) -->
+                        <button onclick="app.openTransactionModal()" class="pointer-events-auto w-16 h-16 bg-slate-900 text-white rounded-full shadow-xl shadow-slate-300 flex items-center justify-center hover:bg-slate-800 hover:scale-105 transition-all group relative active:scale-95" title="Transaksi Baru">
+                            <i data-lucide="plus" width="32"></i>
+                            <span class="absolute right-18 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap mr-2">Transaksi Baru</span>
+                        </button>
                     </div>
                 </div>`;
         };
