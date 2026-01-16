@@ -861,30 +861,34 @@
 
             <div class="bg-white ${DS.radius} w-full max-w-md max-h-[92vh] shadow-xl flex flex-col overflow-hidden">
 
-                <div class="${DS.headerPad} border-b flex justify-between items-center sticky top-0 bg-white/90">
-                <h3 class="font-bold text-base">Catat Transaksi</h3>
+                <!-- HEADER -->
+                <div class="${DS.headerPad} border-b flex justify-between items-center sticky top-0 bg-white/90 z-10">
+                <h3 class="font-bold text-sm">Catat Transaksi</h3>
                 <button onclick="app.closeAllModals()" class="p-2 bg-slate-100 rounded-full">
-                    <i data-lucide="x" width="18"></i>
+                    <i data-lucide="x" width="16"></i>
                 </button>
                 </div>
 
-                <form onsubmit="app.submitTransaction(event)" class="flex-1 overflow-y-auto ${DS.modalPad} ${DS.formGap}">
+                <!-- FORM BODY -->
+                <form onsubmit="app.submitTransaction(event)" class="flex-1 overflow-y-auto ${DS.modalPad} ${DS.formGap}" id="tx-form">
 
+                <!-- TYPE -->
                 <div class="bg-slate-100 p-1 rounded-xl flex">
                     <button type="button"
                     onclick="app.setTxType('expense')"
-                    class="flex-1 py-2 rounded-lg text-xs font-bold
+                    class="flex-1 py-1.5 rounded-lg text-[11px] font-bold
                     ${isExpense ? 'bg-white text-rose-600 shadow' : 'text-slate-500'}">
                     Pengeluaran
                     </button>
                     <button type="button"
                     onclick="app.setTxType('income')"
-                    class="flex-1 py-2 rounded-lg text-xs font-bold
+                    class="flex-1 py-1.5 rounded-lg text-[11px] font-bold
                     ${!isExpense ? 'bg-white text-emerald-600 shadow' : 'text-slate-500'}">
                     Pemasukan
                     </button>
                 </div>
 
+                <!-- DATE -->
                 <div class="${DS.sectionGap}">
                     <label class="${DS.label}">Tanggal</label>
                     <input type="date"
@@ -893,6 +897,7 @@
                     class="${DS.input}">
                 </div>
 
+                <!-- AMOUNT -->
                 <div class="${DS.sectionGap}">
                     <label class="${DS.label}">Nominal</label>
                     <div class="relative">
@@ -900,17 +905,77 @@
                     <input type="text"
                         value="${displayAmount}"
                         oninput="app.handleNumberInput('txForm','amount',this)"
-                        class="${DS.input} pl-12 text-lg font-bold ${isExpense ? 'text-rose-600' : 'text-emerald-600'}"
+                        class="${DS.input} pl-12 text-base font-bold ${isExpense ? 'text-rose-600' : 'text-emerald-600'}"
                         placeholder="0">
                     </div>
                 </div>
 
-                <div class="h-20"></div>
+                <!-- WALLET -->
+                <div class="${DS.sectionGap}">
+                    <label class="${DS.label}">Dompet Sumber</label>
+                    ${data.wallets.length === 0
+                    ? `<p class="text-[10px] text-rose-500">Buat dompet dulu.</p>`
+                    : `
+                    <div class="grid grid-cols-2 ${DS.gridGap}">
+                    ${data.wallets.map(w => `
+                        <button type="button"
+                        onclick="app.setTxWallet('${w.id}')"
+                        class="p-2 rounded-lg border text-left flex items-center gap-2
+                        ${txForm.walletId === w.id
+                            ? 'bg-blue-50 border-blue-500'
+                            : 'bg-white border-slate-200'}">
+                        <div class="w-6 h-6 rounded-md flex items-center justify-center text-white ${w.color}">
+                            <i data-lucide="${w.icon}" width="12"></i>
+                        </div>
+                        <span class="text-[11px] font-bold truncate">${w.name}</span>
+                        </button>
+                    `).join('')}
+                    </div>`}
+                </div>
+
+                <!-- CATEGORY -->
+                <div class="${DS.sectionGap}">
+                    <label class="${DS.label}">Kategori</label>
+                    ${categories.length === 0
+                    ? `<p class="text-[10px] text-slate-400">Belum ada kategori.</p>`
+                    : `
+                    <div class="grid grid-cols-4 ${DS.gridGap}">
+                    ${categories.map(cat => `
+                        <button type="button"
+                        onclick="app.selectCategory('${cat.id}')"
+                        class="flex flex-col items-center p-2 rounded-lg border
+                        ${txForm.categoryId === cat.id
+                            ? 'bg-blue-50 border-blue-500'
+                            : 'bg-white border-slate-200'}">
+                        <div class="w-7 h-7 rounded-md flex items-center justify-center text-white ${cat.color}">
+                            <i data-lucide="${cat.icon}" width="12"></i>
+                        </div>
+                        <span class="text-[9px] font-bold truncate w-full text-center">${cat.name}</span>
+                        </button>
+                    `).join('')}
+                    </div>`}
+                </div>
+
+                <!-- NOTES -->
+                <div class="${DS.sectionGap}">
+                    <label class="${DS.label}">Catatan</label>
+                    <textarea rows="2"
+                    oninput="app.updateForm('txForm','notes',this.value)"
+                    class="${DS.input} resize-none text-xs"
+                    placeholder="Keterangan...">${txForm.notes || ''}</textarea>
+                </div>
+
+                <!-- SPACER FOR STICKY BUTTON -->
+                <div class="h-24"></div>
                 </form>
 
+                <!-- STICKY ACTION -->
                 <div class="sticky bottom-0 bg-white border-t ${DS.stickyBar}">
-                <button class="w-full btn-primary">Simpan</button>
+                <button type="submit" form="tx-form" class="w-full btn-primary py-2.5">
+                    Simpan
+                </button>
                 </div>
+
             </div>
             </div>`;
             };
