@@ -715,359 +715,308 @@
             let badgeHtml = ''; if (isPaidOff) badgeHtml = `<span class="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded border border-slate-200">LUNAS</span>`; else { if (hasPayable) badgeHtml += `<span class="bg-rose-50 text-rose-600 text-[9px] font-bold px-2 py-0.5 rounded border border-rose-100">Hutang: ${formatRupiah(group.totalPayable)}</span>`; if (hasReceivable) badgeHtml += `<span class="bg-emerald-50 text-emerald-600 text-[9px] font-bold px-2 py-0.5 rounded border border-emerald-100 ml-1">Piutang: ${formatRupiah(group.totalReceivable)}</span>`; } 
             return `<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:shadow-md group"><button onclick="app.toggleExpandPerson('${safeName}')" class="w-full p-4 flex items-center justify-between text-left focus:outline-none bg-white relative z-10"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 flex items-center justify-center font-extrabold text-sm group-hover:from-blue-600 group-hover:to-indigo-600 group-hover:text-white transition-all shadow-inner">${group.name.charAt(0).toUpperCase()}</div><div><h4 class="font-bold text-slate-800 text-sm">${group.name}</h4><div class="flex items-center mt-1 gap-1 flex-wrap">${badgeHtml}</div></div></div><div id="icon-${safeId}" class="text-slate-300 group-hover:text-blue-500 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"><i data-lucide="chevron-down" width="18"></i></div></button><div id="details-${safeId}" class="grid transition-all duration-300 ${isExpanded ? 'grid-rows-1' : 'grid-rows-0'}"><div class="overflow-hidden"><div class="border-t border-slate-50 bg-slate-50/50 p-3 space-y-2">${group.items.map(item => { const isPayable = item.type === 'payable'; const paid = item.paidAmount || 0; const total = item.amount; const remaining = total - paid; const isItemPaid = remaining <= 0; return `<div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-3 relative overflow-hidden"><div class="absolute left-0 top-0 bottom-0 w-1 ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}"></div><div class="flex justify-between items-start pl-2"><div><div class="flex items-center gap-1.5 mb-1"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded text-white ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'} tracking-wide">${isPayable ? 'HUTANG' : 'PIUTANG'}</span><span class="text-[9px] font-bold text-slate-400 flex items-center gap-0.5"><i data-lucide="calendar" width="9"></i> ${formatDate(item.date)}</span>${item.isOldDebt ? `<span class="text-[9px] bg-amber-100 text-amber-800 px-1 rounded font-bold border border-amber-200">LAMA</span>` : ''}</div><p class="text-[10px] text-slate-600 font-medium leading-relaxed italic">"${item.notes || 'Tanpa catatan'}"</p></div><div class="text-right"><p class="font-extrabold text-sm text-slate-800">${formatRupiah(total)}</p>${isItemPaid ? `<span class="text-[9px] text-emerald-600 font-bold flex items-center justify-end gap-0.5 bg-emerald-50 px-1.5 py-0.5 rounded-full mt-0.5 w-fit ml-auto border border-emerald-100"><i data-lucide="check-circle" width="8"></i> Lunas</span>` : `<p class="text-[9px] text-slate-400 font-medium mt-0.5">Sisa: <span class="font-bold text-slate-800">${formatRupiah(remaining)}</span></p>`}</div></div><div class="flex items-center gap-3 pt-1 pl-2"><div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner"><div class="h-full ${isPayable ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${(paid/total)*100}%"></div></div><div class="flex gap-2">${!isItemPaid ? `<button onclick="app.openPayDebtModal('${item.id}')" class="px-3 py-1.5 bg-slate-800 text-white text-[9px] font-bold rounded-lg hover:bg-slate-900 shadow-sm transition-transform hover:-translate-y-0.5">${isPayable ? 'Bayar' : 'Terima'}</button>` : ''}<button onclick="app.deleteDebt('${item.id}')" class="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><i data-lucide="trash-2" width="14"></i></button></div></div></div>`; }).join('')}</div></div></div></div>`; }).join('')}</div></div>`;
         };
-                /* =========================================================
-                MODAL DESIGN SYSTEM — EDIT SPACING DI SINI SAJA
-                ========================================================= */
-                const MODAL_DS = {
-                overlay: 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm',
-                box: 'bg-white rounded-2xl w-full max-w-md max-h-[92vh] shadow-2xl overflow-hidden',
-                header: 'p-4 border-b flex justify-between items-center bg-white',
-                body: 'flex-1 overflow-y-auto p-4 space-y-3', // 🔧 RAPAT: p-3 space-y-2 | LEGA: p-5 space-y-4
-                footer: 'p-3 border-t bg-white',
-                title: 'font-bold text-base text-slate-800',
-                closeBtn: 'p-2 bg-slate-100 hover:bg-slate-200 rounded-full',
-                primaryBtn: 'w-full bg-slate-900 text-white py-3 rounded-xl font-medium active:scale-[0.98]'
-                };
+/* =========================================================
+            THEME-IMMUNE MODAL SYSTEM (ANTI TRANSPARAN / ANTI BLUR)
+            EDIT SPACING DI SINI
+            ========================================================= */
+            const MODAL_DS = {
+            overlay: `
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 1rem;
+                background: rgba(15,23,42,0.45);
+                backdrop-filter: blur(6px);
+            `,
+            box: `
+                background: #ffffff !important;
+                opacity: 1 !important;
+                filter: none !important;
+                backdrop-filter: none !important;
+                border-radius: 1.25rem;
+                width: 100%;
+                max-width: 28rem;
+                max-height: 92vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            `,
+            header: `
+                padding: 0.75rem 1rem;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: #ffffff;
+            `,
+            body: `
+                flex: 1;
+                overflow-y: auto;
+                padding: 0.75rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            `,
+            footer: `
+                padding: 0.75rem;
+                border-top: 1px solid #e5e7eb;
+                background: #ffffff;
+            `
+            };
 
-                /* =========================================================
-                MODAL WRAPPER — JANGAN DIUBAH
-                ========================================================= */
-                function modalWrapper(title, formId, formHTML, submitLabel, submitHandler) {
-                return `
-                <div class="${MODAL_DS.overlay}" onclick="app.closeAllModals()">
-                    <div class="${MODAL_DS.box}" onclick="event.stopPropagation()">
-                    <div class="flex flex-col h-full">
+            /* =========================================================
+            CORE WRAPPER — JANGAN UBAH
+            ========================================================= */
+            function modalWrapper(title, formId, formHTML, submitLabel, submitHandler) {
+            return `
+            <div style="${MODAL_DS.overlay}" onclick="app.closeAllModals()">
+                <div style="${MODAL_DS.box}" onclick="event.stopPropagation()">
 
-                        <div class="${MODAL_DS.header}">
-                        <h3 class="${MODAL_DS.title}">${title}</h3>
-                        <button onclick="app.closeAllModals()" class="${MODAL_DS.closeBtn}">
-                            <i data-lucide="x" width="18"></i>
-                        </button>
-                        </div>
-
-                        <form id="${formId}" onsubmit="${submitHandler}(event)" class="${MODAL_DS.body}">
-                        ${formHTML}
-                        </form>
-
-                        <div class="${MODAL_DS.footer}">
-                        <button type="submit" form="${formId}" class="${MODAL_DS.primaryBtn}">
-                            ${submitLabel}
-                        </button>
-                        </div>
-
-                    </div>
-                    </div>
+                <div style="${MODAL_DS.header}">
+                    <strong style="font-size:14px; color:#0f172a;">${title}</strong>
+                    <button onclick="app.closeAllModals()" style="border:none;background:#f1f5f9;border-radius:999px;padding:6px;cursor:pointer;">
+                    ✕
+                    </button>
                 </div>
-                `;
-                }
 
-                /* =========================================================
-                1) SETTINGS MODAL (DOMPET / KATEGORI)
-                ========================================================= */
-                window.app.renderSettingsModalOriginalHTML = function () {
-                const { editingItem, settingsTab, settingsForm } = state;
-                const isWallet = settingsTab === 'wallets';
+                <form id="${formId}" onsubmit="${submitHandler}(event)" style="${MODAL_DS.body}">
+                    ${formHTML}
+                </form>
 
-                const displayBudget = settingsForm.budget
-                    ? formatNumberString(String(settingsForm.budget))
-                    : '';
-                const displayBalance = settingsForm.initialBalance
-                    ? formatNumberString(String(settingsForm.initialBalance))
-                    : '';
-
-                const content = `
-                    <div>
-                    <label class="label-text">Nama</label>
-                    <input
-                        required
-                        type="text"
-                        value="${settingsForm.name || ''}"
-                        oninput="app.updateForm('settingsForm','name',this.value)"
-                        class="input-field"
-                        placeholder="Contoh: Dompet Utama"
-                    />
-                    </div>
-
-                    ${isWallet ? `
-                    <div>
-                    <label class="label-text">Saldo Awal</label>
-                    <div class="relative">
-                        <span class="currency-prefix">Rp</span>
-                        <input
-                        type="text"
-                        inputmode="numeric"
-                        value="${displayBalance}"
-                        oninput="app.handleNumberInput('settingsForm','initialBalance',this)"
-                        class="input-field pl-12"
-                        placeholder="0"
-                        />
-                    </div>
-                    </div>
-                    ` : `
-                    <div>
-                    <label class="label-text">Budget</label>
-                    <div class="relative">
-                        <span class="currency-prefix">Rp</span>
-                        <input
-                        type="text"
-                        inputmode="numeric"
-                        value="${displayBudget}"
-                        oninput="app.handleNumberInput('settingsForm','budget',this)"
-                        class="input-field pl-12"
-                        placeholder="0"
-                        />
-                    </div>
-                    </div>
-                    `}
-                `;
-
-                return modalWrapper(
-                    `${editingItem ? 'Edit' : 'Tambah'} ${isWallet ? 'Dompet' : 'Kategori'}`,
-                    'settings-form',
-                    content,
-                    'Simpan',
-                    'app.submitSettings'
-                );
-                };
-
-                /* =========================================================
-                2) TRANSAKSI
-                ========================================================= */
-                window.app.renderTxModalOriginalHTML = function () {
-                const { txForm, data } = state;
-                const isExpense = txForm.type === 'expense';
-                const displayAmount = txForm.amount
-                    ? formatNumberString(String(txForm.amount))
-                    : '';
-
-                const content = `
-                    <div class="grid grid-cols-2 gap-2">
-                    <button type="button"
-                        onclick="app.setTxType('expense')"
-                        class="py-2 rounded-xl border text-sm ${isExpense ? 'bg-red-50 border-red-400 text-red-600' : 'border-slate-200'}">
-                        Pengeluaran
+                <div style="${MODAL_DS.footer}">
+                    <button
+                    type="submit"
+                    form="${formId}"
+                    style="width:100%;padding:12px;border-radius:12px;background:#0f172a;color:white;border:none;font-weight:600;cursor:pointer;">
+                    ${submitLabel}
                     </button>
-                    <button type="button"
-                        onclick="app.setTxType('income')"
-                        class="py-2 rounded-xl border text-sm ${!isExpense ? 'bg-green-50 border-green-400 text-green-600' : 'border-slate-200'}">
-                        Pemasukan
-                    </button>
-                    </div>
+                </div>
 
-                    <div>
-                    <label class="label-text">Tanggal</label>
-                    <input
-                        type="date"
-                        value="${txForm.date || ''}"
-                        onchange="app.updateForm('txForm','date',this.value)"
-                        class="input-field"
-                    />
-                    </div>
+                </div>
+            </div>
+            `;
+            }
 
-                    <div>
-                    <label class="label-text">Nominal</label>
-                    <div class="relative">
-                        <span class="currency-prefix">Rp</span>
-                        <input
-                        type="text"
-                        inputmode="numeric"
-                        value="${displayAmount}"
-                        oninput="app.handleNumberInput('txForm','amount',this)"
-                        class="input-field pl-12 ${isExpense ? 'text-rose-600' : 'text-emerald-600'} font-bold"
-                        placeholder="0"
-                        />
-                    </div>
-                    </div>
+            /* =========================================================
+            1) SETTINGS
+            ========================================================= */
+            window.app.renderSettingsModalOriginalHTML = function () {
+            const { editingItem, settingsTab, settingsForm } = state;
+            const isWallet = settingsTab === 'wallets';
 
-                    <div>
-                    <label class="label-text">Catatan</label>
-                    <textarea
-                        rows="2"
-                        oninput="app.updateForm('txForm','notes',this.value)"
-                        class="input-field resize-none"
-                        placeholder="Keterangan transaksi..."
-                    >${txForm.notes || ''}</textarea>
-                    </div>
-                `;
+            const displayBudget = settingsForm.budget
+                ? formatNumberString(String(settingsForm.budget))
+                : '';
+            const displayBalance = settingsForm.initialBalance
+                ? formatNumberString(String(settingsForm.initialBalance))
+                : '';
 
-                return modalWrapper(
-                    'Catat Transaksi',
-                    'tx-form',
-                    content,
-                    'Simpan',
-                    'app.submitTransaction'
-                );
-                };
+            const content = `
+                <label>Nama</label>
+                <input
+                required
+                value="${settingsForm.name || ''}"
+                oninput="app.updateForm('settingsForm','name',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                placeholder="Nama..."
+                />
 
-                /* =========================================================
-                3) TRANSFER
-                ========================================================= */
-                window.app.renderTransferModalOriginalHTML = function () {
-                const { transferForm } = state;
-                const displayAmount = transferForm.amount
-                    ? formatNumberString(String(transferForm.amount))
-                    : '';
+                <label>${isWallet ? 'Saldo Awal' : 'Budget'}</label>
+                <input
+                value="${isWallet ? displayBalance : displayBudget}"
+                oninput="app.handleNumberInput('settingsForm','${isWallet ? 'initialBalance' : 'budget'}',this)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                placeholder="0"
+                />
+            `;
 
-                const content = `
-                    <div>
-                    <label class="label-text">Tanggal</label>
-                    <input
-                        type="date"
-                        value="${transferForm.date || ''}"
-                        onchange="app.updateForm('transferForm','date',this.value)"
-                        class="input-field"
-                    />
-                    </div>
+            return modalWrapper(
+                `${editingItem ? 'Edit' : 'Tambah'} ${isWallet ? 'Dompet' : 'Kategori'}`,
+                'settings-form',
+                content,
+                'Simpan',
+                'app.submitSettings'
+            );
+            };
 
-                    <div>
-                    <label class="label-text">Nominal</label>
-                    <div class="relative">
-                        <span class="currency-prefix">Rp</span>
-                        <input
-                        type="text"
-                        inputmode="numeric"
-                        value="${displayAmount}"
-                        oninput="app.handleNumberInput('transferForm','amount',this)"
-                        class="input-field pl-12 font-bold"
-                        placeholder="0"
-                        />
-                    </div>
-                    </div>
+            /* =========================================================
+            2) TRANSAKSI
+            ========================================================= */
+            window.app.renderTxModalOriginalHTML = function () {
+            const { txForm } = state;
+            const displayAmount = txForm.amount
+                ? formatNumberString(String(txForm.amount))
+                : '';
 
-                    <div>
-                    <label class="label-text">Catatan</label>
-                    <textarea
-                        rows="2"
-                        oninput="app.updateForm('transferForm','notes',this.value)"
-                        class="input-field resize-none"
-                        placeholder="Keterangan transfer..."
-                    >${transferForm.notes || ''}</textarea>
-                    </div>
-                `;
+            const content = `
+                <label>Tanggal</label>
+                <input
+                type="date"
+                value="${txForm.date || ''}"
+                onchange="app.updateForm('txForm','date',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                />
 
-                return modalWrapper(
-                    'Transfer Aset',
-                    'transfer-form',
-                    content,
-                    'Proses Transfer',
-                    'app.submitTransfer'
-                );
-                };
+                <label>Nominal</label>
+                <input
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('txForm','amount',this)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;font-weight:bold;"
+                placeholder="0"
+                />
 
-                /* =========================================================
-                4) HUTANG / PIUTANG
-                ========================================================= */
-                window.app.renderDebtModalOriginalHTML = function () {
-                const { debtForm } = state;
-                const displayAmount = debtForm.amount
-                    ? formatNumberString(String(debtForm.amount))
-                    : '';
+                <label>Catatan</label>
+                <textarea
+                rows="2"
+                oninput="app.updateForm('txForm','notes',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                >${txForm.notes || ''}</textarea>
+            `;
 
-                const content = `
-                    <div>
-                    <label class="label-text">Nama Orang</label>
-                    <input
-                        type="text"
-                        value="${debtForm.person || ''}"
-                        oninput="app.updateForm('debtForm','person',this.value)"
-                        class="input-field"
-                        placeholder="Nama orang..."
-                    />
-                    </div>
+            return modalWrapper(
+                'Catat Transaksi',
+                'tx-form',
+                content,
+                'Simpan',
+                'app.submitTransaction'
+            );
+            };
 
-                    <div>
-                    <label class="label-text">Nominal</label>
-                    <div class="relative">
-                        <span class="currency-prefix">Rp</span>
-                        <input
-                        type="text"
-                        inputmode="numeric"
-                        value="${displayAmount}"
-                        oninput="app.handleNumberInput('debtForm','amount',this)"
-                        class="input-field pl-12 font-bold"
-                        placeholder="0"
-                        />
-                    </div>
-                    </div>
+            /* =========================================================
+            3) TRANSFER
+            ========================================================= */
+            window.app.renderTransferModalOriginalHTML = function () {
+            const { transferForm } = state;
+            const displayAmount = transferForm.amount
+                ? formatNumberString(String(transferForm.amount))
+                : '';
 
-                    <div>
-                    <label class="label-text">Catatan</label>
-                    <textarea
-                        rows="2"
-                        oninput="app.updateForm('debtForm','notes',this.value)"
-                        class="input-field resize-none"
-                        placeholder="Catatan tambahan..."
-                    >${debtForm.notes || ''}</textarea>
-                    </div>
-                `;
+            const content = `
+                <label>Tanggal</label>
+                <input
+                type="date"
+                value="${transferForm.date || ''}"
+                onchange="app.updateForm('transferForm','date',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                />
 
-                return modalWrapper(
-                    'Catat Hutang / Piutang',
-                    'debt-form',
-                    content,
-                    'Simpan',
-                    'app.submitDebt'
-                );
-                };
+                <label>Nominal</label>
+                <input
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('transferForm','amount',this)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;font-weight:bold;"
+                placeholder="0"
+                />
 
-                /* =========================================================
-                5) BAYAR HUTANG / TERIMA PIUTANG
-                ========================================================= */
-                window.app.renderPayDebtModalOriginalHTML = function () {
-                const { payDebtForm, selectedDebt } = state;
-                const displayAmount = payDebtForm.amount
-                    ? formatNumberString(String(payDebtForm.amount))
-                    : '';
+                <label>Catatan</label>
+                <textarea
+                rows="2"
+                oninput="app.updateForm('transferForm','notes',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                >${transferForm.notes || ''}</textarea>
+            `;
 
-                const content = `
-                    <div class="bg-slate-50 p-3 rounded-xl text-xs">
-                    <strong>${selectedDebt.person || ''}</strong>
-                    </div>
+            return modalWrapper(
+                'Transfer Aset',
+                'transfer-form',
+                content,
+                'Proses Transfer',
+                'app.submitTransfer'
+            );
+            };
 
-                    <div>
-                    <label class="label-text">Tanggal</label>
-                    <input
-                        type="date"
-                        value="${payDebtForm.date || ''}"
-                        onchange="app.updateForm('payDebtForm','date',this.value)"
-                        class="input-field"
-                    />
-                    </div>
+            /* =========================================================
+            4) HUTANG / PIUTANG
+            ========================================================= */
+            window.app.renderDebtModalOriginalHTML = function () {
+            const { debtForm } = state;
+            const displayAmount = debtForm.amount
+                ? formatNumberString(String(debtForm.amount))
+                : '';
 
-                    <div>
-                    <label class="label-text">Nominal</label>
-                    <div class="relative">
-                        <span class="currency-prefix">Rp</span>
-                        <input
-                        type="text"
-                        inputmode="numeric"
-                        value="${displayAmount}"
-                        oninput="app.handleNumberInput('payDebtForm','amount',this)"
-                        class="input-field pl-12 font-bold"
-                        placeholder="0"
-                        />
-                    </div>
-                    </div>
+            const content = `
+                <label>Nama Orang</label>
+                <input
+                value="${debtForm.person || ''}"
+                oninput="app.updateForm('debtForm','person',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                />
 
-                    <div>
-                    <label class="label-text">Catatan</label>
-                    <textarea
-                        rows="2"
-                        oninput="app.updateForm('payDebtForm','notes',this.value)"
-                        class="input-field resize-none"
-                        placeholder="Contoh: Cicilan ke-1..."
-                    >${payDebtForm.notes || ''}</textarea>
-                    </div>
-                `;
+                <label>Nominal</label>
+                <input
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('debtForm','amount',this)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;font-weight:bold;"
+                placeholder="0"
+                />
 
-                return modalWrapper(
-                    'Pembayaran Hutang',
-                    'paydebt-form',
-                    content,
-                    'Proses',
-                    'app.submitDebtPayment'
-                );
-                };
+                <label>Catatan</label>
+                <textarea
+                rows="2"
+                oninput="app.updateForm('debtForm','notes',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                >${debtForm.notes || ''}</textarea>
+            `;
+
+            return modalWrapper(
+                'Catat Hutang / Piutang',
+                'debt-form',
+                content,
+                'Simpan',
+                'app.submitDebt'
+            );
+            };
+
+            /* =========================================================
+            5) BAYAR HUTANG / TERIMA PIUTANG
+            ========================================================= */
+            window.app.renderPayDebtModalOriginalHTML = function () {
+            const { payDebtForm, selectedDebt } = state;
+            const displayAmount = payDebtForm.amount
+                ? formatNumberString(String(payDebtForm.amount))
+                : '';
+
+            const content = `
+                <div style="background:#f1f5f9;padding:8px;border-radius:10px;font-size:12px;">
+                ${selectedDebt.person || ''}
+                </div>
+
+                <label>Tanggal</label>
+                <input
+                type="date"
+                value="${payDebtForm.date || ''}"
+                onchange="app.updateForm('payDebtForm','date',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                />
+
+                <label>Nominal</label>
+                <input
+                value="${displayAmount}"
+                oninput="app.handleNumberInput('payDebtForm','amount',this)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;font-weight:bold;"
+                placeholder="0"
+                />
+
+                <label>Catatan</label>
+                <textarea
+                rows="2"
+                oninput="app.updateForm('payDebtForm','notes',this.value)"
+                style="width:100%;padding:10px;border-radius:10px;border:1px solid #e5e7eb;"
+                >${payDebtForm.notes || ''}</textarea>
+            `;
+
+            return modalWrapper(
+                'Pembayaran Hutang',
+                'paydebt-form',
+                content,
+                'Proses',
+                'app.submitDebtPayment'
+            );
+            };
 
         window.app.renderAllModals = function() {
             if (state.isSettingsModalOpen) return window.app.renderSettingsModalOriginalHTML();
