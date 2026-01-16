@@ -452,10 +452,18 @@
             // New Handlers for Settings (Visual Only)
             setSettingsColor: (c) => {
                 state.settingsForm.color = c;
-                updateVisualSelection('.settings-color-btn', c,
-                    `settings-color-btn w-9 h-9 rounded-xl ${c} ring-4 ring-offset-2 ring-slate-200 scale-110 shadow-md transition-all`,
-                    `settings-color-btn w-9 h-9 rounded-xl ${c} transition-all hover:scale-105`
-                );
+                // BUG FIX: Manual update untuk color palette agar warna asli tombol lain tidak tertimpa
+                const buttons = document.querySelectorAll('.settings-color-btn');
+                buttons.forEach(btn => {
+                    const btnColor = btn.dataset.value; // Ambil warna asli tombol dari data-value
+                    if (btnColor === c) {
+                        // Style Aktif
+                        btn.className = `settings-color-btn w-9 h-9 rounded-xl ${btnColor} ring-4 ring-offset-2 ring-slate-200 scale-110 shadow-md transition-all`;
+                    } else {
+                        // Style Tidak Aktif (Tetap gunakan btnColor, bukan c)
+                        btn.className = `settings-color-btn w-9 h-9 rounded-xl ${btnColor} transition-all hover:scale-105`;
+                    }
+                });
             },
             
             setSettingsIcon: (i) => {
