@@ -557,12 +557,12 @@
             transactions.forEach(tx => { if (tx.type === 'expense') walletBalances[tx.walletId] -= tx.amount; if (tx.type === 'income') walletBalances[tx.walletId] += tx.amount; if (tx.type === 'transfer') { walletBalances[tx.fromWalletId] -= tx.amount; walletBalances[tx.toWalletId] += tx.amount; } });
             const totalAssets = wallets.reduce((sum, w) => sum + (w.isExcluded ? 0 : (walletBalances[w.id] || 0)), 0);
             
-            // Budget Data (Tetap diurutkan berdasarkan % untuk Progress Bar Budget)
+            // Budget Data
             const budgetData = expense.map(cat => { const spent = expenseByCategory[cat.id] || 0; const budget = cat.budget || 0; return { ...cat, spent, percent: budget > 0 ? (spent / budget) * 100 : 0 }; }).sort((a, b) => b.percent - a.percent);
             
             const totalBudget = budgetData.reduce((sum, i) => sum + (i.budget || 0), 0); const totalBudgetSpent = budgetData.reduce((sum, i) => sum + i.spent, 0); const totalBudgetPercent = totalBudget > 0 ? (totalBudgetSpent / totalBudget) * 100 : 0;
             
-            // PERBAIKAN: Top Kategori diurutkan berdasarkan NOMINAL PENGELUARAN (spent) terbesar
+            // Top Kategori based on Spent Amount
             const topCategories = [...budgetData].sort((a, b) => b.spent - a.spent).slice(0, 5).filter(c => c.spent > 0); 
             
             const topExpenses = filteredTx.filter(tx => tx.type === 'expense' && !tx.isDebtPayment).sort((a, b) => b.amount - a.amount).slice(0, 5);
@@ -642,7 +642,7 @@
                      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-100 h-fit flex flex-col">
                             <div class="p-5 border-b border-slate-50 flex flex-wrap justify-between items-center gap-3">
-                                <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2"><i data-lucide="history" width="16" class="text-slate-400"></i> Riwayat Terkini</h3>
+                                <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2"><i data-lucide="list-checks" width="16" class="text-slate-400"></i> Riwayat Transaksi</h3>
                                 <div class="flex gap-2">
                                      <button onclick="app.openTransferModal()" class="px-3 py-1.5 bg-slate-50 text-slate-600 text-[10px] font-bold rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1 border border-slate-100"><i data-lucide="arrow-right-left" width="12"></i> Transfer</button>
                                     <button onclick="app.openTransactionModal()" class="px-3 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm"><i data-lucide="plus" width="12"></i> Baru</button>
@@ -651,11 +651,74 @@
                             <div class="divide-y divide-slate-50 max-h-[600px] overflow-y-auto custom-scroll">
                                 ${filteredTx.length === 0 ? `<div class="p-8 text-center text-slate-400 text-xs font-medium">Belum ada data.</div>` : ''}
                                 ${filteredTx.map(tx => {
-                                    const isExpense = tx.type === 'expense'; let name = 'Transaksi', icon = 'circle', color = 'bg-slate-400';
-                                    if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-500'; }
-                                    else if(tx.isDebtPayment) { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check-circle'; color = isExpense ? 'bg-rose-500' : 'bg-emerald-500'; }
-                                    else { const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId); if(cat) { name = cat.name; icon = cat.icon; color = cat.color; } }
-                                    return `<div class="p-4 hover:bg-slate-50 transition-colors group cursor-default relative"><div class="flex justify-between items-start mb-1 pr-14"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] shadow-sm ${color}"><i data-lucide="${icon}" width="14"></i></div><span class="font-bold text-slate-700 text-xs truncate max-w-[120px]">${name}</span></div><span class="font-bold text-xs ${isExpense ? 'text-rose-600' : 'text-emerald-600'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span></div><div class="flex justify-between items-center text-[10px] text-slate-400 pl-[2.75rem] font-medium pr-14"><span>${formatDate(tx.date)}</span><span class="truncate max-w-[80px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">${wallets.find(w=>w.id===tx.walletId)?.name || '-'}</span></div><div class="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-2"><button onclick="app.editTransaction('${tx.id}')" class="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-100"><i data-lucide="edit-2" width="12"></i></button><button onclick="app.deleteTransaction('${tx.id}')" class="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 border border-rose-100"><i data-lucide="trash-2" width="12"></i></button></div></div>`;
+                                    const isExpense = tx.type === 'expense';
+                                    let name = 'Transaksi', icon = 'circle', color = 'bg-slate-400';
+                                    let walletInfo = '';
+
+                                    if(tx.type === 'transfer') {
+                                        name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-500';
+                                        const fromWallet = wallets.find(w => w.id === tx.fromWalletId)?.name || '?';
+                                        const toWallet = wallets.find(w => w.id === tx.toWalletId)?.name || '?';
+                                        walletInfo = `${fromWallet} → ${toWallet}`;
+                                    }
+                                    else if(tx.isDebtPayment) {
+                                        name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check-circle'; color = isExpense ? 'bg-rose-500' : 'bg-emerald-500';
+                                        walletInfo = wallets.find(w => w.id === tx.walletId)?.name || '-';
+                                    }
+                                    else {
+                                        const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId);
+                                        if(cat) { name = cat.name; icon = cat.icon; color = cat.color; }
+                                        walletInfo = wallets.find(w => w.id === tx.walletId)?.name || '-';
+                                    }
+
+                                    return `
+                                    <div class="p-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                                        <div class="flex gap-3">
+                                            <!-- Icon -->
+                                            <div class="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-[10px] shadow-sm ${color} mt-0.5">
+                                                <i data-lucide="${icon}" width="16"></i>
+                                            </div>
+
+                                            <!-- Left Info (Main) -->
+                                            <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                                <!-- Title -->
+                                                <p class="font-bold text-slate-700 text-xs truncate leading-tight mb-0.5">${name}</p>
+                                                
+                                                <!-- Note (Replacing Date Position) -->
+                                                <p class="text-[10px] text-slate-500 truncate leading-tight mb-0.5 flex items-center gap-1">
+                                                    <i data-lucide="sticky-note" width="8" class="text-slate-300"></i>
+                                                    ${tx.notes || '<span class="italic text-slate-300">Tanpa catatan</span>'}
+                                                </p>
+
+                                                <!-- Wallet (Replacing Note Position) -->
+                                                <div class="flex items-center gap-1 text-[9px] text-slate-400 font-medium">
+                                                    <i data-lucide="wallet" width="10"></i>
+                                                    <span class="truncate">${walletInfo}</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Right Info (Meta & Actions) -->
+                                            <div class="flex flex-col items-end justify-center gap-0.5 pl-2">
+                                                <!-- Date (Moved Above Nominal) -->
+                                                <span class="text-[9px] text-slate-400 font-medium whitespace-nowrap">${formatDate(tx.date)}</span>
+                                                
+                                                <!-- Nominal -->
+                                                <span class="font-bold text-xs ${isExpense ? 'text-rose-600' : 'text-emerald-600'} whitespace-nowrap">
+                                                    ${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}
+                                                </span>
+
+                                                <!-- Actions (Moved Below Nominal) -->
+                                                <div class="flex items-center gap-3 mt-0.5">
+                                                    <button onclick="app.editTransaction('${tx.id}')" class="text-slate-300 hover:text-blue-600 transition-colors" title="Edit">
+                                                        <i data-lucide="edit-2" width="12"></i>
+                                                    </button>
+                                                    <button onclick="app.deleteTransaction('${tx.id}')" class="text-slate-300 hover:text-rose-600 transition-colors" title="Hapus">
+                                                        <i data-lucide="trash-2" width="12"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>`;
                                 }).join('')}
                             </div>
                         </div>
