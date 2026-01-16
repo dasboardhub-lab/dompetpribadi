@@ -485,11 +485,49 @@
                 state.shouldRefreshContent = false;
             }
             
+            // --- MODIFIED MODAL RENDER LOGIC START ---
             const modalArea = document.getElementById('modal-area');
             const newModalHTML = window.app.renderAllModals();
-            if (modalArea.innerHTML !== newModalHTML) { modalArea.innerHTML = newModalHTML; lucide.createIcons({ root: modalArea }); }
-            document.getElementById('confirm-modal-area').innerHTML = renderConfirmModal();
-            lucide.createIcons({ root: document.getElementById('confirm-modal-area') });
+            
+            if (modalArea.innerHTML !== newModalHTML) {
+                // 1. Capture State (Scroll & Focus)
+                const scrollContainer = modalArea.querySelector('.overflow-y-auto');
+                const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+                
+                const activeEl = document.activeElement;
+                const savedFocusId = activeEl ? activeEl.id : null;
+                const savedSelectionStart = activeEl ? activeEl.selectionStart : null;
+                const savedSelectionEnd = activeEl ? activeEl.selectionEnd : null;
+
+                // 2. Update HTML
+                modalArea.innerHTML = newModalHTML;
+                lucide.createIcons({ root: modalArea });
+
+                // 3. Restore Scroll
+                const newScrollContainer = modalArea.querySelector('.overflow-y-auto');
+                if (newScrollContainer) {
+                    newScrollContainer.scrollTop = savedScrollTop;
+                }
+
+                // 4. Restore Focus & Cursor Position
+                if (savedFocusId) {
+                    const elToFocus = document.getElementById(savedFocusId);
+                    if (elToFocus) {
+                        elToFocus.focus();
+                        if (savedSelectionStart !== null && /text|search|password|tel|url/.test(elToFocus.type)) {
+                             try { elToFocus.setSelectionRange(savedSelectionStart, savedSelectionEnd); } catch(e) {}
+                        }
+                    }
+                }
+            }
+            // --- MODIFIED MODAL RENDER LOGIC END ---
+            
+            const confirmArea = document.getElementById('confirm-modal-area');
+            const newConfirmHTML = renderConfirmModal();
+            if (confirmArea.innerHTML !== newConfirmHTML) {
+                confirmArea.innerHTML = newConfirmHTML;
+                lucide.createIcons({ root: confirmArea });
+            }
         }
 
         window.app.renderDashboardOriginal = function() {
