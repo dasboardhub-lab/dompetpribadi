@@ -298,7 +298,21 @@
                 }
             },
             setTxFilter: (field, value) => { state.filter[field] = value; state.shouldRefreshContent = true; render(); },
-            setDashboardFilter: (field, value) => { state.dashboardFilter[field] = value; state.shouldRefreshContent = true; render(); },
+            
+            // PERBAIKAN: Tambahkan parameter skipRender agar tidak refresh saat ketik tanggal
+            setDashboardFilter: (field, value, skipRender = false) => { 
+                state.dashboardFilter[field] = value; 
+                if (!skipRender) {
+                    state.shouldRefreshContent = true; 
+                    render(); 
+                }
+            },
+            // PERBAIKAN: Fungsi baru untuk tombol "Cari" tanggal
+            applyDateFilter: () => {
+                state.shouldRefreshContent = true;
+                render();
+            },
+
             resetDashboardFilter: () => { state.dashboardFilter = { type: 'all', walletId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' }; state.shouldRefreshContent = true; render(); },
             toggleWalletExclusion: async (id, currentIsExcluded) => { try { await updateDoc(doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, 'wallets', id), { isExcluded: !currentIsExcluded }); } catch (err) { console.error(err); } },
             openSettingsModal: (mode, id = null, tabName = null) => {
@@ -665,17 +679,26 @@
             const topCategories = [...budgetData].sort((a, b) => b.spent - a.spent).slice(0, 5).filter(c => c.spent > 0); 
             const topExpenses = filteredTx.filter(tx => tx.type === 'expense' && !tx.isDebtPayment).sort((a, b) => b.amount - a.amount).slice(0, 5);
             
+            // PERBAIKAN: Sortir dompet berdasarkan saldo terbesar
+            const sortedWallets = [...wallets].sort((a, b) => (walletBalances[b.id] || 0) - (walletBalances[a.id] || 0));
+
             const btnClass = (active) => `px-4 py-2 rounded-full text-xs font-bold border transition-all ${active ? 'bg-slate-800 text-white border-slate-800 shadow-md shadow-slate-300' : 'bg-white text-slate-500 border-slate-200 hover:bg-white hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm'}`;
             
             return `
                 <div class="space-y-6"> <!-- Spacing diperbesar agar tidak sesak -->
                     <!-- Filter Pills -->
                     <div class="card-friendly p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
-                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-full border border-slate-200 w-full md:w-auto overflow-hidden">
-                            <input type="date" value="${filter.startDate}" onchange="app.setDashboardFilter('startDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none px-3 py-1 cursor-pointer w-full text-center hover:text-indigo-600">
-                            <i data-lucide="arrow-right" width="14" class="text-slate-300"></i>
-                            <input type="date" value="${filter.endDate}" onchange="app.setDashboardFilter('endDate', this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none px-3 py-1 cursor-pointer w-full text-center hover:text-indigo-600">
+                        
+                        <!-- PERBAIKAN: Input Tanggal dengan tombol Cari -->
+                        <div class="flex items-center gap-1.5 bg-slate-50 p-1 rounded-full border border-slate-200 w-full md:w-auto overflow-hidden">
+                            <input type="date" value="${filter.startDate}" onchange="app.setDashboardFilter('startDate', this.value, true)" class="bg-transparent text-xs font-bold text-slate-600 outline-none px-2 py-1 cursor-pointer w-full text-center hover:text-indigo-600">
+                            <span class="text-slate-300 font-bold">-</span>
+                            <input type="date" value="${filter.endDate}" onchange="app.setDashboardFilter('endDate', this.value, true)" class="bg-transparent text-xs font-bold text-slate-600 outline-none px-2 py-1 cursor-pointer w-full text-center hover:text-indigo-600">
+                            <button onclick="app.applyDateFilter()" class="bg-indigo-500 hover:bg-indigo-600 text-white p-1.5 rounded-full shadow-sm transition-colors" title="Terapkan Tanggal">
+                                <i data-lucide="search" width="12"></i>
+                            </button>
                         </div>
+
                         <div class="flex flex-wrap gap-2 justify-center">
                             <button onclick="app.setDashboardFilter('type', 'all')" class="${btnClass(filter.type === 'all')}">Semua</button>
                             <button onclick="app.setDashboardFilter('type', 'income')" class="${btnClass(filter.type === 'income')}">Masuk</button>
@@ -683,12 +706,19 @@
                             <button onclick="app.setDashboardFilter('type', 'transfer')" class="${btnClass(filter.type === 'transfer')}">Transfer</button>
                             <button onclick="app.setDashboardFilter('type', 'debt')" class="${btnClass(filter.type === 'debt')}">Hutang</button>
                         </div>
-                        <div class="relative w-full md:w-auto">
-                            <select onchange="app.setDashboardFilter('walletId', this.value)" class="appearance-none w-full md:w-48 pl-4 pr-10 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 outline-none cursor-pointer hover:bg-indigo-100 transition-colors">
-                                <option value="all">Semua Dompet</option>
-                                ${wallets.map(w => `<option value="${w.id}" ${filter.walletId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
-                            </select>
-                            <div class="absolute right-3 top-3 text-indigo-400 pointer-events-none"><i data-lucide="chevron-down" width="14"></i></div>
+                        
+                        <!-- PERBAIKAN: Layout Select Wallet + Reset Button -->
+                        <div class="flex items-center gap-2 w-full md:w-auto">
+                            <div class="relative flex-1 md:w-48">
+                                <select onchange="app.setDashboardFilter('walletId', this.value)" class="appearance-none w-full pl-4 pr-10 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 outline-none cursor-pointer hover:bg-indigo-100 transition-colors">
+                                    <option value="all">Semua Dompet</option>
+                                    ${wallets.map(w => `<option value="${w.id}" ${filter.walletId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+                                </select>
+                                <div class="absolute right-3 top-3 text-indigo-400 pointer-events-none"><i data-lucide="chevron-down" width="14"></i></div>
+                            </div>
+                            <button onclick="app.resetDashboardFilter()" class="w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:shadow-sm flex items-center justify-center transition-all" title="Reset Filter">
+                                <i data-lucide="rotate-ccw" width="16"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -723,7 +753,7 @@
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6"> <!-- Gap proporsional -->
                         <!-- Left Column (Layout Tetap) -->
                         <div class="lg:col-span-7 space-y-6">
-                            <!-- Wallets -->
+                            <!-- Wallets (Sorted by Balance) -->
                             <div class="card-friendly overflow-hidden">
                                 <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between">
                                     <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><div class="bg-indigo-100 p-1.5 rounded-lg text-indigo-500"><i data-lucide="credit-card" width="16"></i></div> Dompetku</h3>
@@ -731,7 +761,7 @@
                                 <div class="p-3">
                                     <table class="w-full text-sm text-left border-separate border-spacing-y-2">
                                         <tbody class="text-sm">
-                                            ${wallets.map(w => `<tr class="bg-slate-50/50 hover:bg-white hover:shadow-md transition-all rounded-xl group"><td class="px-4 py-3 rounded-l-xl font-bold text-slate-700"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-xs ${w.color} transform group-hover:scale-110 transition-transform"><i data-lucide="${w.icon}" width="16"></i></div><div>${w.name}<div class="text-[10px] text-slate-400 font-medium uppercase mt-0.5">${w.type}</div></div></div></td><td class="px-4 py-3 text-right font-black text-slate-700">${formatRupiah(walletBalances[w.id])}</td><td class="px-4 py-3 rounded-r-xl text-center w-10"><button onclick="app.toggleWalletExclusion('${w.id}', ${w.isExcluded ? 'true' : 'false'})" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors ${!w.isExcluded ? 'text-indigo-500 bg-indigo-50' : 'text-slate-300 bg-slate-100'}"><i data-lucide="${!w.isExcluded ? 'eye' : 'eye-off'}" width="14"></i></button></td></tr>`).join('')}
+                                            ${sortedWallets.map(w => `<tr class="bg-slate-50/50 hover:bg-white hover:shadow-md transition-all rounded-xl group"><td class="px-4 py-3 rounded-l-xl font-bold text-slate-700"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-xs ${w.color} transform group-hover:scale-110 transition-transform"><i data-lucide="${w.icon}" width="16"></i></div><div>${w.name}<div class="text-[10px] text-slate-400 font-medium uppercase mt-0.5">${w.type}</div></div></div></td><td class="px-4 py-3 text-right font-black text-slate-700">${formatRupiah(walletBalances[w.id])}</td><td class="px-4 py-3 rounded-r-xl text-center w-10"><button onclick="app.toggleWalletExclusion('${w.id}', ${w.isExcluded ? 'true' : 'false'})" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors ${!w.isExcluded ? 'text-indigo-500 bg-indigo-50' : 'text-slate-300 bg-slate-100'}"><i data-lucide="${!w.isExcluded ? 'eye' : 'eye-off'}" width="14"></i></button></td></tr>`).join('')}
                                         </tbody>
                                     </table>
                                 </div>
