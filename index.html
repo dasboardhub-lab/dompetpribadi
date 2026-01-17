@@ -818,19 +818,34 @@
                                         if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-400'; }
                                         else if(tx.isDebtPayment) { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check'; color = isExpense ? 'bg-rose-400' : 'bg-emerald-400'; }
                                         else { const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId); if(cat) { name = cat.name; icon = cat.icon; color = cat.color; } }
-                                        return `<div class="p-4 bg-white rounded-2xl border border-slate-50 shadow-sm hover:shadow-md hover:border-indigo-100 transition-all group flex items-center gap-4 relative overflow-hidden">
-                                            <div class="w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-white ${color} shadow-sm transform group-hover:scale-110 group-hover:rotate-6 transition-transform"><i data-lucide="${icon}" width="18"></i></div>
+                                        
+                                        // Cari nama dompet
+                                        const wallet = wallets.find(w => w.id === tx.walletId);
+                                        const walletName = wallet ? wallet.name : 'Unknown';
+
+                                        return `<div class="p-3 bg-white rounded-2xl border border-slate-50 shadow-sm hover:shadow-md transition-all flex items-center gap-3 relative overflow-hidden">
+                                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white ${color} shadow-sm">
+                                                <i data-lucide="${icon}" width="16"></i>
+                                            </div>
+                                            
                                             <div class="flex-1 min-w-0">
-                                                <p class="font-bold text-slate-700 text-sm mb-0.5 truncate">${name}</p>
-                                                <p class="text-xs text-slate-400 truncate">${tx.notes || '...'}</p>
+                                                <p class="font-bold text-slate-700 text-xs mb-0.5 truncate">${name}</p>
+                                                <div class="flex items-center gap-1.5 overflow-hidden">
+                                                    <span class="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded flex-shrink-0 max-w-[80px] truncate">
+                                                        ${walletName}
+                                                    </span>
+                                                    <p class="text-[10px] text-slate-400 truncate">${tx.notes || '-'}</p>
+                                                </div>
                                             </div>
-                                            <div class="text-right">
-                                                <span class="block font-black text-sm ${isExpense ? 'text-rose-500' : 'text-emerald-500'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span>
-                                                <span class="text-[10px] font-bold text-slate-300">${formatDate(tx.date)}</span>
+                                            
+                                            <div class="text-right flex-shrink-0">
+                                                <span class="block font-black text-xs ${isExpense ? 'text-rose-500' : 'text-emerald-500'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span>
+                                                <span class="text-[9px] font-bold text-slate-300">${formatDate(tx.date)}</span>
                                             </div>
-                                            <div class="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white/90 p-1.5 rounded-xl shadow-sm">
-                                                <button onclick="app.editTransaction('${tx.id}')" class="text-indigo-500 hover:bg-indigo-50 p-1.5 rounded-lg"><i data-lucide="edit-2" width="14"></i></button>
-                                                <button onclick="app.deleteTransaction('${tx.id}')" class="text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg"><i data-lucide="trash" width="14"></i></button>
+
+                                            <div class="flex flex-col gap-1 pl-2 border-l border-slate-100">
+                                                <button onclick="app.editTransaction('${tx.id}')" class="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded transition-colors"><i data-lucide="edit-2" width="12"></i></button>
+                                                <button onclick="app.deleteTransaction('${tx.id}')" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors"><i data-lucide="trash" width="12"></i></button>
                                             </div>
                                         </div>`;
                                     }).join('')}
