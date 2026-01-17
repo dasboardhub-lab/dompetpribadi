@@ -379,7 +379,14 @@
             selectCategory: (id) => { state.txForm.categoryId = id; updateVisualSelection('.tx-cat-btn', id, 'tx-cat-btn flex flex-col items-center gap-2 p-2 rounded-2xl transition-all border bg-white border-indigo-400 ring-4 ring-indigo-50 shadow-md transform scale-105', 'tx-cat-btn flex flex-col items-center gap-2 p-2 rounded-2xl transition-all border bg-white border-slate-100 hover:bg-slate-50 hover:border-slate-300 opacity-70 hover:opacity-100'); },
             setTransferWallet: (field, id) => { state.transferForm[field] = id; const colorClass = field === 'fromWalletId' ? 'rose' : 'emerald'; updateVisualSelection(`.transfer-${field}-btn`, id, `transfer-${field}-btn p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all bg-${colorClass}-50 border-${colorClass}-400 ring-2 ring-${colorClass}-100`, `transfer-${field}-btn p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all bg-white border-slate-100 hover:bg-slate-50`); },
             setDebtType: (type) => { state.debtForm.type = type; render(); },
-            toggleDebtOld: (checked) => { state.debtForm.isOldDebt = checked; render(); },
+            
+            // PERBAIKAN: Toggle visual tanpa render ulang agar tidak kedip
+            toggleDebtOld: (checked) => { 
+                state.debtForm.isOldDebt = checked; 
+                const el = document.getElementById('debt-wallet-section');
+                if (el) el.style.display = checked ? 'none' : 'block';
+            },
+            
             setDebtWallet: (id) => { state.debtForm.walletId = id; updateVisualSelection('.debt-wallet-btn', id, 'debt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'debt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50'); },
             setPayDebtWallet: (id) => { state.payDebtForm.walletId = id; updateVisualSelection('.paydebt-wallet-btn', id, 'paydebt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'paydebt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50'); },
             setSettingsColor: (c) => { state.settingsForm.color = c; const buttons = document.querySelectorAll('.settings-color-btn'); buttons.forEach(btn => { if (btn.dataset.value === c) btn.className = `settings-color-btn w-10 h-10 rounded-full ${c} ring-4 ring-offset-2 ring-slate-200 scale-110 shadow-md transition-all`; else btn.className = `settings-color-btn w-10 h-10 rounded-full ${btn.dataset.value} transition-all hover:scale-110 opacity-70 hover:opacity-100`; }); },
@@ -747,8 +754,22 @@
                             <!-- Budget List (Kategori) - FULL WIDTH -->
                             <div class="card-friendly p-5">
                                 <h4 class="font-bold text-slate-700 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 rounded-lg bg-indigo-100 text-indigo-500"><i data-lucide="pie-chart" width="14"></i></div> Kategori</h4>
-                                <div class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scroll">
-                                    ${budgetData.map(cat => { const percent = Math.min(100, cat.percent); return `<div class="group"><div class="flex justify-between text-xs mb-1.5"><span class="font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">${cat.name}</span><span class="font-bold text-slate-400">${Math.round(cat.percent)}%</span></div><div class="h-2.5 bg-slate-50 rounded-full overflow-hidden"><div class="h-full rounded-full ${cat.percent > 100 ? 'bg-rose-400' : 'bg-indigo-400'} opacity-80" style="width: ${cat.budget > 0 ? percent : 0}%"></div></div></div>`; }).join('')}
+                                <div class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scroll">
+                                    ${budgetData.map(cat => { 
+                                        const percent = Math.min(100, cat.percent); 
+                                        return `<div class="group">
+                                            <div class="flex justify-between items-end text-xs mb-1.5">
+                                                <div>
+                                                    <span class="block font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">${cat.name}</span>
+                                                    <span class="text-[10px] text-slate-400 font-medium">${formatRupiah(cat.spent)} <span class="text-slate-300">/ ${cat.budget > 0 ? formatRupiah(cat.budget) : '∞'}</span></span>
+                                                </div>
+                                                <span class="font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">${Math.round(cat.percent)}%</span>
+                                            </div>
+                                            <div class="h-2.5 bg-slate-50 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full ${cat.percent > 100 ? 'bg-rose-400' : 'bg-indigo-400'} opacity-80" style="width: ${cat.budget > 0 ? percent : 0}%"></div>
+                                            </div>
+                                        </div>`; 
+                                    }).join('')}
                                 </div>
                             </div>
 
@@ -857,7 +878,16 @@
 
         window.app.renderDebtModalOriginalHTML = function() {
             const {debtForm,data}=state; const isPayable=debtForm.type==='payable';
-            return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-pop-in relative"><div class="p-5 border-b border-slate-50 flex justify-between"><h3 class="font-black text-lg text-slate-800">Hutang/Piutang</h3><button onclick="app.closeAllModals()" class="p-1.5 bg-slate-100 rounded-full"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitDebt(event)" class="p-6 space-y-4"><div class="flex gap-2 bg-slate-100 p-1 rounded-xl"><button type="button" onclick="app.setDebtType('payable')" class="flex-1 py-2 rounded-lg text-xs font-bold ${isPayable?'bg-white shadow text-rose-500':'text-slate-400'}">Saya Berhutang</button><button type="button" onclick="app.setDebtType('receivable')" class="flex-1 py-2 rounded-lg text-xs font-bold ${!isPayable?'bg-white shadow text-emerald-500':'text-slate-400'}">Saya Memberi Hutang</button></div><div><label class="label-text">Tanggal Transaksi</label><input type="date" value="${debtForm.date}" onchange="app.updateForm('debtForm','date',this.value)" class="input-field"></div><div><label class="label-text">Nama Orang</label><input type="text" value="${debtForm.person}" oninput="app.updateForm('debtForm','person',this.value)" class="input-field" placeholder="Nama..."></div><div><label class="label-text">Jumlah</label><input type="text" value="${debtForm.amount}" oninput="app.handleNumberInput('debtForm','amount',this)" class="input-field font-black text-lg" placeholder="Rp 0"></div>${!debtForm.isOldDebt?`<div><label class="label-text">Dompet Transaksi</label><div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" data-value="${w.id}" onclick="app.setDebtWallet('${w.id}')" class="debt-wallet-btn p-2.5 rounded-xl border text-left ${debtForm.walletId===w.id?'bg-indigo-50 border-indigo-400':'bg-white border-slate-100'}"><span class="font-bold text-xs">${w.name}</span></button>`).join('')}</div></div>`:''}<div><label class="label-text">Jatuh Tempo</label><input type="date" value="${debtForm.dueDate}" onchange="app.updateForm('debtForm','dueDate',this.value)" class="input-field"></div><div class="flex items-center gap-2"><input type="checkbox" id="old-debt" onchange="app.toggleDebtOld(this.checked)" ${debtForm.isOldDebt?'checked':''}><label for="old-debt" class="text-xs font-bold text-slate-500">Ini hutang lama (jangan kurangi saldo dompet)</label></div><button type="submit" class="btn-primary w-full py-3">Simpan</button></form></div></div>`;
+            return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-pop-in relative"><div class="p-5 border-b border-slate-50 flex justify-between"><h3 class="font-black text-lg text-slate-800">Hutang/Piutang</h3><button onclick="app.closeAllModals()" class="p-1.5 bg-slate-100 rounded-full"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitDebt(event)" class="p-6 space-y-4"><div class="flex gap-2 bg-slate-100 p-1 rounded-xl"><button type="button" onclick="app.setDebtType('payable')" class="flex-1 py-2 rounded-lg text-xs font-bold ${isPayable?'bg-white shadow text-rose-500':'text-slate-400'}">Saya Berhutang</button><button type="button" onclick="app.setDebtType('receivable')" class="flex-1 py-2 rounded-lg text-xs font-bold ${!isPayable?'bg-white shadow text-emerald-500':'text-slate-400'}">Saya Memberi Hutang</button></div><div><label class="label-text">Tanggal Transaksi</label><input type="date" value="${debtForm.date}" onchange="app.updateForm('debtForm','date',this.value)" class="input-field"></div><div><label class="label-text">Nama Orang</label><input type="text" value="${debtForm.person}" oninput="app.updateForm('debtForm','person',this.value)" class="input-field" placeholder="Nama..."></div><div><label class="label-text">Jumlah</label><input type="text" value="${debtForm.amount}" oninput="app.handleNumberInput('debtForm','amount',this)" class="input-field font-black text-lg" placeholder="Rp 0"></div>
+            
+            <div id="debt-wallet-section" style="display: ${debtForm.isOldDebt ? 'none' : 'block'}">
+                <label class="label-text">Dompet Transaksi</label>
+                <div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" data-value="${w.id}" onclick="app.setDebtWallet('${w.id}')" class="debt-wallet-btn p-2.5 rounded-xl border text-left ${debtForm.walletId===w.id?'bg-indigo-50 border-indigo-400':'bg-white border-slate-100'}"><span class="font-bold text-xs">${w.name}</span></button>`).join('')}</div>
+            </div>
+            
+            <div><label class="label-text">Catatan</label><textarea rows="2" oninput="app.updateForm('debtForm','notes',this.value)" class="input-field resize-none text-xs" placeholder="Keterangan...">${debtForm.notes || ''}</textarea></div>
+            
+            <div><label class="label-text">Jatuh Tempo</label><input type="date" value="${debtForm.dueDate}" onchange="app.updateForm('debtForm','dueDate',this.value)" class="input-field"></div><div class="flex items-center gap-2"><input type="checkbox" id="old-debt" onchange="app.toggleDebtOld(this.checked)" ${debtForm.isOldDebt?'checked':''}><label for="old-debt" class="text-xs font-bold text-slate-500">Ini hutang lama (jangan kurangi saldo dompet)</label></div><button type="submit" class="btn-primary w-full py-3">Simpan</button></form></div></div>`;
         };
         
         window.app.renderPayDebtModalOriginalHTML = function() {
