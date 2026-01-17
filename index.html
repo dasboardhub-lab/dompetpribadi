@@ -322,11 +322,61 @@
                 state.isSettingsModalOpen = true; state.shouldRefreshContent = false; render();
             },
             openTransactionModal: () => { state.editingTxId = null; state.txForm = { type: 'expense', date: getToday(), amount: '', walletId: state.data.wallets[0]?.id || '', categoryId: '', notes: '' }; state.isTransactionModalOpen = true; state.shouldRefreshContent = false; render(); },
+            
+            // PERBAIKAN: Logika Edit Transaksi yang mendeteksi Pembayaran Hutang
             editTransaction: (id) => {
                 const tx = state.data.transactions.find(t => t.id === id); if (!tx) return;
-                if (tx.type === 'transfer') { state.transferForm = { date: tx.date, amount: tx.amount, fromWalletId: tx.fromWalletId, toWalletId: tx.toWalletId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransferModalOpen = true; } else { state.txForm = { type: tx.type, date: tx.date, amount: tx.amount, walletId: tx.walletId, categoryId: tx.categoryId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransactionModalOpen = true; }
+                
+                // CASE 1: Edit Pembayaran Hutang/Piutang
+                if (tx.isDebtPayment) {
+                    let personName = '';
+                    let type = '';
+                    
+                    // Cari nama orang berdasarkan data distribusi atau legacy ID
+                    if (tx.paymentDistribution && tx.paymentDistribution.length > 0) {
+                        const debt = state.data.debts.find(d => d.id === tx.paymentDistribution[0].debtId);
+                        if (debt) { personName = debt.person; type = debt.type; }
+                    } else if (tx.relatedDebtId) {
+                        const debt = state.data.debts.find(d => d.id === tx.relatedDebtId);
+                        if (debt) { personName = debt.person; type = debt.type; }
+                    }
+
+                    // Fallback parse dari notes jika data hutang sudah dihapus
+                    if (!personName && tx.notes) {
+                        const parts = tx.notes.split(' ');
+                        if (parts.length >= 3) {
+                             personName = parts.slice(2).join(' ');
+                             type = tx.notes.includes('Hutang') ? 'payable' : 'receivable';
+                        }
+                    }
+
+                    if (personName) {
+                        // Hitung total sisa seolah-olah pembayaran ini belum terjadi (untuk limit edit)
+                        const personDebts = state.data.debts.filter(d => d.person === personName && d.type === type);
+                        let currentTotalRemaining = personDebts.reduce((sum, d) => sum + (d.amount - (d.paidAmount || 0)), 0);
+                        const totalSisaForEdit = currentTotalRemaining + tx.amount;
+
+                        state.selectedPersonGroup = { name: personName, type: type, total: totalSisaForEdit };
+                        state.payDebtForm = { date: tx.date, amount: tx.amount, walletId: tx.walletId, notes: tx.notes, type: type }; 
+                        state.editingTxId = id; // Tandai sedang mengedit
+                        state.isPayDebtModalOpen = true; 
+                        state.shouldRefreshContent = false; 
+                        render();
+                        return;
+                    }
+                }
+
+                // CASE 2: Edit Transfer
+                if (tx.type === 'transfer') { 
+                    state.transferForm = { date: tx.date, amount: tx.amount, fromWalletId: tx.fromWalletId, toWalletId: tx.toWalletId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransferModalOpen = true; 
+                } 
+                // CASE 3: Edit Transaksi Biasa
+                else { 
+                    state.txForm = { type: tx.type, date: tx.date, amount: tx.amount, walletId: tx.walletId, categoryId: tx.categoryId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransactionModalOpen = true; 
+                }
                 state.shouldRefreshContent = false; render();
             },
+
             deleteTransaction: (id) => { 
                 triggerConfirm('Hapus & Batalkan?', 'Menghapus transaksi ini akan mengembalikan saldo hutang/piutang seperti semula.', async () => { 
                     try { 
@@ -440,10 +490,11 @@
             submitTransfer: async (e) => { e.preventDefault(); if (!state.accessCode) return; const { transferForm, editingTxId } = state; if (!transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount) return showNotification('Eits', 'Lengkapi dulu datanya', 'error'); state.isSubmitting = true; render(); const txData = { type: 'transfer', date: transferForm.date, amount: Number(transferForm.amount), fromWalletId: transferForm.fromWalletId, toWalletId: transferForm.toWalletId, notes: transferForm.notes, updatedAt: new Date().toISOString() }; try { if (editingTxId) { await updateDoc(window.app.getDocPath('transactions', editingTxId), txData); showNotification('Oke', 'Transfer diupdate'); } else { txData.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath('transactions'), txData); showNotification('Berhasil', 'Uang sudah pindah'); } state.isTransferModalOpen = false; state.editingTxId = null; } catch (err) { console.error(err); showNotification('Gagal', 'Ada masalah', 'error'); } finally { state.isSubmitting = false; render(); } },
             submitDebt: async (e) => { e.preventDefault(); if (!state.accessCode) return; const { debtForm } = state; if (!debtForm.person || !debtForm.amount) return showNotification('Eits', 'Isi dulu yang lengkap', 'error'); if (!debtForm.isOldDebt && !debtForm.walletId) return showNotification('Peringatan', 'Pilih dompet dulu', 'error'); state.isSubmitting = true; render(); const newDebt = { type: debtForm.type, person: debtForm.person, amount: Number(debtForm.amount), paidAmount: 0, date: debtForm.date, dueDate: debtForm.dueDate || null, notes: debtForm.notes, isOldDebt: debtForm.isOldDebt, status: 'active', createdAt: new Date().toISOString() }; try { const docRef = await addDoc(window.app.getDbPath('debts'), newDebt); if (!debtForm.isOldDebt) { const isPayable = debtForm.type === 'payable'; const txData = { type: isPayable ? 'income' : 'expense', date: debtForm.date, amount: Number(debtForm.amount), walletId: debtForm.walletId, categoryId: isPayable ? 'DEBT_IN' : 'DEBT_OUT', notes: `${isPayable ? 'Hutang dari' : 'Piutang ke'} ${debtForm.person}: ${debtForm.notes}`, relatedDebtId: docRef.id, createdAt: new Date().toISOString() }; await addDoc(window.app.getDbPath('transactions'), txData); } state.isDebtModalOpen = false; showNotification('Sip', 'Hutang dicatat'); } catch (err) { console.error(err); showNotification('Gagal', 'Error nih', 'error'); } finally { state.isSubmitting = false; render(); } },
             
+            // PERBAIKAN: Logika Simpan Pembayaran (Support Edit dengan Rollback)
             submitDebtPayment: async (e) => { 
                 e.preventDefault(); 
                 if (!state.accessCode) return; 
-                const { payDebtForm, selectedPersonGroup } = state; 
+                const { payDebtForm, selectedPersonGroup, editingTxId } = state; 
                 if (!payDebtForm.amount || !payDebtForm.walletId) return showNotification('Eits', 'Data kurang', 'error'); 
                 
                 let paymentAmount = Number(payDebtForm.amount);
@@ -452,14 +503,44 @@
                 state.isSubmitting = true; render(); 
                 
                 try { 
-                    // 1. Get debts sorted by oldest
+                    // TAHAP 1: ROLLBACK JIKA SEDANG EDIT
+                    // Kembalikan saldo hutang seperti sebelum transaksi ini terjadi
+                    if (editingTxId) {
+                        const oldTx = state.data.transactions.find(t => t.id === editingTxId);
+                        if (oldTx && oldTx.isDebtPayment) {
+                             if (oldTx.paymentDistribution && Array.isArray(oldTx.paymentDistribution)) {
+                                for (const dist of oldTx.paymentDistribution) {
+                                    const debt = state.data.debts.find(d => d.id === dist.debtId);
+                                    if (debt) {
+                                        const newPaid = Math.max(0, (debt.paidAmount || 0) - dist.amount);
+                                        await updateDoc(window.app.getDocPath('debts', debt.id), {
+                                            paidAmount: newPaid,
+                                            status: 'active',
+                                            updatedAt: new Date().toISOString()
+                                        });
+                                        // Update state lokal manual agar tahap 2 membaca data yang benar
+                                        debt.paidAmount = newPaid; 
+                                    }
+                                }
+                            } else if (oldTx.relatedDebtId) {
+                                const debt = state.data.debts.find(d => d.id === oldTx.relatedDebtId);
+                                if (debt) {
+                                    const newPaid = Math.max(0, (debt.paidAmount || 0) - oldTx.amount);
+                                    await updateDoc(window.app.getDocPath('debts', debt.id), { paidAmount: newPaid, status: 'active', updatedAt: new Date().toISOString() });
+                                    debt.paidAmount = newPaid;
+                                }
+                            }
+                        }
+                    }
+
+                    // TAHAP 2: DISTRIBUSI PEMBAYARAN BARU
+                    // Ambil hutang yang masih aktif, urutkan dari yang terlama
                     const personDebts = state.data.debts.filter(d => 
                         d.person === selectedPersonGroup.name && 
                         d.type === selectedPersonGroup.type && 
                         (d.amount - (d.paidAmount || 0) > 0)
                     ).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                    // 2. Distribute payment & Track distribution
                     let remainingToPay = paymentAmount;
                     const paymentDistribution = []; 
 
@@ -478,29 +559,35 @@
                             updatedAt: new Date().toISOString() 
                         });
                         
-                        // Simpan info: Hutang ID sekian dibayar sebesar sekian
                         paymentDistribution.push({ debtId: debt.id, amount: payForThis });
-                        
                         remainingToPay -= payForThis;
                     }
 
-                    // 3. Create Transaction Record with Distribution Data
+                    // TAHAP 3: SIMPAN/UPDATE TRANSAKSI
                     const isPayable = selectedPersonGroup.type === 'payable'; 
-                    const newTx = { 
+                    const txData = { 
                         type: isPayable ? 'expense' : 'income', 
                         date: payDebtForm.date, 
                         amount: paymentAmount, 
                         walletId: payDebtForm.walletId, 
                         categoryId: 'DEBT_PAYMENT', 
                         notes: `Pelunasan ${isPayable ? 'Hutang' : 'Piutang'} ${selectedPersonGroup.name}`, 
-                        createdAt: new Date().toISOString(), 
+                        updatedAt: new Date().toISOString(), 
                         isDebtPayment: true,
-                        paymentDistribution: paymentDistribution // Simpan jejak pembayaran disini
+                        paymentDistribution: paymentDistribution 
                     }; 
-                    await addDoc(window.app.getDbPath('transactions'), newTx); 
+
+                    if (editingTxId) {
+                        await updateDoc(window.app.getDocPath('transactions', editingTxId), txData);
+                        showNotification('Sip', 'Pembayaran diperbarui!');
+                    } else {
+                        txData.createdAt = new Date().toISOString();
+                        await addDoc(window.app.getDbPath('transactions'), txData);
+                        showNotification('Lunas?', 'Pembayaran tercatat!');
+                    }
                     
                     state.isPayDebtModalOpen = false; 
-                    showNotification('Lunas?', 'Pembayaran tercatat & saldo diupdate!'); 
+                    state.editingTxId = null; 
                 } catch (err) { 
                     console.error("Error", err); 
                     showNotification('Gagal', 'Coba lagi', 'error'); 
