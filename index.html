@@ -283,7 +283,24 @@
         // --- WINDOW APP METHODS ---
         window.app = {
             handleLoginInput: (val) => { state.loginCodeInput = val.toUpperCase().replace(/[^A-Z0-9]/g, ''); const el = document.getElementById('login-input'); if(el && el.value !== state.loginCodeInput) el.value = state.loginCodeInput; },
-            login: (e) => { e.preventDefault(); if (!state.loginCodeInput || state.loginCodeInput.length < 3) return showNotification('Waduh', 'Kodenya terlalu pendek', 'error'); state.accessCode = state.loginCodeInput; localStorage.setItem('finance_access_code', state.accessCode); initDataListeners(state.accessCode); showNotification('Hore!', 'Berhasil masuk', 'success'); state.shouldRefreshContent = true; render(); },
+            
+            login: (e) => { 
+                e.preventDefault(); 
+                
+                // STRICT CHECK: Hanya GAFFI12 yang boleh lewat
+                if (state.loginCodeInput !== 'GAFFI12') {
+                    return showNotification('Akses Ditolak', 'Maaf, ini aplikasi pribadi.', 'error');
+                }
+
+                // Login Sukses
+                state.accessCode = state.loginCodeInput; 
+                localStorage.setItem('finance_access_code', state.accessCode); 
+                initDataListeners(state.accessCode); 
+                showNotification('Selamat Datang', 'Akses Pemilik Diberikan', 'success'); 
+                state.shouldRefreshContent = true; 
+                render(); 
+            },
+
             logout: () => { triggerConfirm('Mau Keluar?', 'Yakin nih mau udahan dulu?', () => { cleanupListeners(); state.accessCode = null; state.loginCodeInput = ''; localStorage.removeItem('finance_access_code'); state.activeMenu = 'dashboard'; document.getElementById('app').innerHTML = ''; render(); }, 'danger'); },
             setMenu: (menu) => { if (state.activeMenu !== menu) { state.activeMenu = menu; state.shouldRefreshContent = true; render(); } },
             setSettingsTab: (tab) => { state.settingsTab = tab; state.shouldRefreshContent = true; render(); },
@@ -307,7 +324,7 @@
                     render(); 
                 }
             },
-            // PERBAIKAN: Fungsi baru untuk tombol "Cari" tanggal
+            
             applyDateFilter: () => {
                 state.shouldRefreshContent = true;
                 render();
@@ -699,6 +716,10 @@
                     <main id="main-content-scroller" class="flex-1 overflow-y-auto scroll-smooth">
                         <div id="main-content-area" class="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24"></div> <!-- Reduced padding -->
                     </main>
+                    
+                    <!-- PERBAIKAN: Wadah Tombol Floating Action Button (FAB) dipisah agar selalu di atas & pojok -->
+                    <div id="fab-container" class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none transition-opacity duration-300"></div>
+
                     <div id="modal-area"></div>
                     <div id="confirm-modal-area"></div>`;
                 mainContentArea = document.getElementById('main-content-area');
@@ -706,6 +727,29 @@
                 lucide.createIcons(); 
             }
             updateNavbarActiveState();
+
+            // PERBAIKAN: Logika Render Tombol Floating (Hanya di Dashboard)
+            const fabContainer = document.getElementById('fab-container');
+            if (fabContainer) {
+                if (state.activeMenu === 'dashboard') {
+                    // Render tombol jika belum ada isinya (untuk efisiensi) atau jika menu berubah
+                    if (fabContainer.innerHTML.trim() === '') {
+                        fabContainer.innerHTML = `
+                            <button onclick="app.openTransferModal()" class="pointer-events-auto w-12 h-12 bg-white text-indigo-500 rounded-2xl shadow-lg border-2 border-indigo-50 flex items-center justify-center hover:scale-110 transition-all hover-float" title="Transfer">
+                                <i data-lucide="arrow-right-left" width="20"></i>
+                            </button>
+                            <button onclick="app.openTransactionModal()" class="pointer-events-auto w-16 h-16 bg-slate-900 text-white rounded-[1.5rem] shadow-xl shadow-slate-400/50 flex items-center justify-center hover:scale-105 active:scale-95 transition-all hover-float group border-4 border-white">
+                                <i data-lucide="plus" width="32" class="group-hover:rotate-90 transition-transform duration-300"></i>
+                            </button>`;
+                        fabContainer.classList.remove('opacity-0', 'invisible');
+                        lucide.createIcons({ root: fabContainer });
+                    }
+                } else {
+                    // Sembunyikan tombol di menu lain
+                    fabContainer.innerHTML = '';
+                    fabContainer.classList.add('opacity-0', 'invisible');
+                }
+            }
 
             if (state.shouldRefreshContent || state.activeMenu !== state.lastRenderedMenu) {
                 const animClass = state.activeMenu !== state.lastRenderedMenu ? 'animate-pop-in' : '';
@@ -738,6 +782,7 @@
         window.app.renderDashboardOriginal = function() {
             const { transactions, wallets, expense, income } = state.data;
             const filter = state.dashboardFilter;
+            
             const filteredTx = transactions.filter(tx => {
                 if (filter.startDate && tx.date < filter.startDate) return false;
                 if (filter.endDate && tx.date > filter.endDate) return false;
@@ -766,73 +811,114 @@
             const topCategories = [...budgetData].sort((a, b) => b.spent - a.spent).slice(0, 5).filter(c => c.spent > 0); 
             const topExpenses = filteredTx.filter(tx => tx.type === 'expense' && !tx.isDebtPayment).sort((a, b) => b.amount - a.amount).slice(0, 5);
             
-            // PERBAIKAN: Sortir dompet berdasarkan saldo terbesar
             const sortedWallets = [...wallets].sort((a, b) => (walletBalances[b.id] || 0) - (walletBalances[a.id] || 0));
 
-            const btnClass = (active) => `px-4 py-2 rounded-full text-xs font-bold border transition-all ${active ? 'bg-slate-800 text-white border-slate-800 shadow-md shadow-slate-300' : 'bg-white text-slate-500 border-slate-200 hover:bg-white hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm'}`;
+            const btnClass = (active) => `px-4 py-2 rounded-xl text-xs font-bold border transition-all ${active ? 'bg-slate-800 text-white border-slate-800 shadow-md shadow-slate-300 transform scale-105' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm'}`;
             
             return `
-                <div class="space-y-6"> <!-- Spacing diperbesar agar tidak sesak -->
-                    <!-- Filter Pills -->
-                    <div class="card-friendly p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="space-y-6"> 
+                    <!-- REVISED FILTER SECTION (LABELED & DIVIDED) -->
+                    <div class="card-friendly p-5">
                         
-                        <!-- PERBAIKAN: Input Tanggal dengan tombol Cari -->
-                        <div class="flex items-center gap-1.5 bg-slate-50 p-1 rounded-full border border-slate-200 w-full md:w-auto overflow-hidden">
-                            <input type="date" value="${filter.startDate}" onchange="app.setDashboardFilter('startDate', this.value, true)" class="bg-transparent text-xs font-bold text-slate-600 outline-none px-2 py-1 cursor-pointer w-full text-center hover:text-indigo-600">
-                            <span class="text-slate-300 font-bold">-</span>
-                            <input type="date" value="${filter.endDate}" onchange="app.setDashboardFilter('endDate', this.value, true)" class="bg-transparent text-xs font-bold text-slate-600 outline-none px-2 py-1 cursor-pointer w-full text-center hover:text-indigo-600">
-                            <button onclick="app.applyDateFilter()" class="bg-indigo-500 hover:bg-indigo-600 text-white p-1.5 rounded-full shadow-sm transition-colors" title="Terapkan Tanggal">
-                                <i data-lucide="search" width="12"></i>
-                            </button>
+                        <!-- Top Section: Date & Wallet -->
+                        <div class="flex flex-col md:flex-row gap-5 items-end">
+                            
+                            <!-- Date Filter Group -->
+                            <div class="w-full md:flex-1 space-y-2">
+                                <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Rentang Waktu</h4>
+                                <div class="flex items-center gap-2 bg-white border border-slate-200 p-1.5 rounded-xl shadow-sm w-full relative group-focus-within:ring-2 group-focus-within:ring-indigo-100 group-focus-within:border-indigo-300 transition-all">
+                                     <div class="absolute inset-y-0 left-2 flex items-center pointer-events-none text-slate-400 pl-1"><i data-lucide="calendar" width="16"></i></div>
+                                     <div class="flex items-center gap-2 pl-9 pr-2 w-full justify-between">
+                                        <input type="date" value="${filter.startDate}" onchange="app.setDashboardFilter('startDate', this.value, true)" class="bg-transparent text-xs font-bold text-slate-700 outline-none p-1 rounded hover:bg-slate-50 cursor-pointer w-[45%]">
+                                        <span class="text-slate-300 font-bold shrink-0">→</span>
+                                        <input type="date" value="${filter.endDate}" onchange="app.setDashboardFilter('endDate', this.value, true)" class="bg-transparent text-xs font-bold text-slate-700 outline-none p-1 rounded hover:bg-slate-50 cursor-pointer w-[45%]">
+                                     </div>
+                                     <button onclick="app.applyDateFilter()" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-lg transition-all shadow-sm active:scale-95 ml-auto shrink-0" title="Terapkan Filter">
+                                        <i data-lucide="search" width="14"></i>
+                                     </button>
+                                </div>
+                            </div>
+
+                            <!-- Vertical Divider (Desktop Only) -->
+                            <div class="hidden md:block w-px h-10 bg-slate-100 mx-2 mb-1"></div>
+
+                            <!-- Wallet Filter Group -->
+                            <div class="w-full md:w-auto md:min-w-[240px] space-y-2">
+                                <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Filter Dompet</h4>
+                                <div class="flex items-center gap-2 w-full">
+                                    <div class="relative flex-1 group">
+                                        <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-indigo-400"><i data-lucide="wallet" width="14"></i></div>
+                                        <select onchange="app.setDashboardFilter('walletId', this.value)" class="appearance-none w-full pl-9 pr-10 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 outline-none cursor-pointer hover:bg-indigo-100 transition-colors focus:ring-2 focus:ring-indigo-200">
+                                            <option value="all">Semua Dompet</option>
+                                            ${wallets.map(w => `<option value="${w.id}" ${filter.walletId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
+                                        </select>
+                                        <div class="absolute right-3 top-3 text-indigo-400 pointer-events-none"><i data-lucide="chevron-down" width="14"></i></div>
+                                    </div>
+                                    <button onclick="app.resetDashboardFilter()" class="w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:shadow-sm flex items-center justify-center transition-all active:rotate-180 duration-500" title="Reset Semua Filter">
+                                        <i data-lucide="rotate-ccw" width="16"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="flex flex-wrap gap-2 justify-center">
-                            <button onclick="app.setDashboardFilter('type', 'all')" class="${btnClass(filter.type === 'all')}">Semua</button>
-                            <button onclick="app.setDashboardFilter('type', 'income')" class="${btnClass(filter.type === 'income')}">Masuk</button>
-                            <button onclick="app.setDashboardFilter('type', 'expense')" class="${btnClass(filter.type === 'expense')}">Keluar</button>
-                            <button onclick="app.setDashboardFilter('type', 'transfer')" class="${btnClass(filter.type === 'transfer')}">Transfer</button>
-                            <button onclick="app.setDashboardFilter('type', 'debt')" class="${btnClass(filter.type === 'debt')}">Hutang</button>
-                        </div>
-                        
-                        <!-- PERBAIKAN: Layout Select Wallet + Reset Button -->
-                        <div class="flex items-center gap-2 w-full md:w-auto">
-                            <div class="relative flex-1 md:w-48">
-                                <select onchange="app.setDashboardFilter('walletId', this.value)" class="appearance-none w-full pl-4 pr-10 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 outline-none cursor-pointer hover:bg-indigo-100 transition-colors">
-                                    <option value="all">Semua Dompet</option>
-                                    ${wallets.map(w => `<option value="${w.id}" ${filter.walletId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}
-                                </select>
-                                <div class="absolute right-3 top-3 text-indigo-400 pointer-events-none"><i data-lucide="chevron-down" width="14"></i></div>
+                        <!-- Horizontal Divider -->
+                        <div class="h-px bg-slate-50 my-4 w-full"></div>
+
+                        <!-- Bottom Section: Type Filters -->
+                        <div class="space-y-3">
+                            <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Kategori Transaksi</h4>
+                            <div class="flex flex-wrap gap-2 justify-center">
+                                <button onclick="app.setDashboardFilter('type', 'all')" class="${btnClass(filter.type === 'all')}">Semua</button>
+                                <button onclick="app.setDashboardFilter('type', 'income')" class="${btnClass(filter.type === 'income')}">Masuk</button>
+                                <button onclick="app.setDashboardFilter('type', 'expense')" class="${btnClass(filter.type === 'expense')}">Keluar</button>
+                                <button onclick="app.setDashboardFilter('type', 'transfer')" class="${btnClass(filter.type === 'transfer')}">Transfer</button>
+                                <button onclick="app.setDashboardFilter('type', 'debt')" class="${btnClass(filter.type === 'debt')}">Hutang</button>
                             </div>
-                            <button onclick="app.resetDashboardFilter()" class="w-10 h-10 flex-shrink-0 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:shadow-sm flex items-center justify-center transition-all" title="Reset Filter">
-                                <i data-lucide="rotate-ccw" width="16"></i>
-                            </button>
                         </div>
                     </div>
 
                     <!-- KPI Cards Friendly -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <!-- Saldo Bersih Card -->
                         <div class="rounded-[1.75rem] bg-gradient-to-br from-violet-500 to-fuchsia-600 p-6 text-white shadow-xl shadow-violet-300 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
+                            <!-- Background Decoration -->
                             <div class="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
+                            <div class="absolute -right-4 -bottom-8 text-white opacity-10 transform rotate-12 group-hover:scale-110 group-hover:rotate-0 transition-all duration-1000">
+                                <i data-lucide="wallet-cards" width="130" height="130"></i>
+                            </div>
+                            
                             <div class="relative z-10">
-                                <p class="text-violet-100 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2 opacity-80"><i data-lucide="wallet" width="14"></i> Saldo Bersih</p>
+                                <p class="text-violet-100 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2"><i data-lucide="wallet" width="14"></i> Saldo Bersih</p>
                                 <h3 class="text-3xl font-black tracking-tight">${formatRupiah(totalAssets)}</h3>
                             </div>
                         </div>
 
+                        <!-- Pemasukan Card -->
                         <div class="rounded-[1.75rem] bg-white p-6 border border-slate-100 shadow-lg shadow-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
-                            <div class="flex justify-between items-start mb-3">
-                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pemasukan</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalIncome)}</h3></div>
-                                <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all"><i data-lucide="arrow-up-right" width="20"></i></div>
+                            <!-- Background Decoration -->
+                            <div class="absolute -right-6 -bottom-6 text-emerald-50 opacity-60 transform rotate-12 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-700">
+                                <i data-lucide="trending-up" width="100" height="100"></i>
                             </div>
-                            <div class="w-full bg-slate-50 h-2 rounded-full overflow-hidden"><div class="h-full bg-emerald-400 w-[70%] rounded-full opacity-80"></div></div>
+
+                            <div class="flex justify-between items-start mb-3 relative z-10">
+                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pemasukan</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalIncome)}</h3></div>
+                                <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-sm"><i data-lucide="arrow-up-right" width="20"></i></div>
+                            </div>
+                            <div class="w-full bg-slate-50 h-2 rounded-full overflow-hidden relative z-10"><div class="h-full bg-emerald-400 w-[70%] rounded-full opacity-80"></div></div>
                         </div>
 
+                        <!-- Pengeluaran Card -->
                         <div class="rounded-[1.75rem] bg-white p-6 border border-slate-100 shadow-lg shadow-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
-                            <div class="flex justify-between items-start mb-3">
-                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pengeluaran</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalExpense)}</h3></div>
-                                <div class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-all"><i data-lucide="arrow-down-right" width="20"></i></div>
+                             <!-- Background Decoration -->
+                            <div class="absolute -right-6 -bottom-6 text-rose-50 opacity-60 transform rotate-12 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-700">
+                                <i data-lucide="trending-down" width="100" height="100"></i>
                             </div>
-                            <div class="w-full bg-slate-50 h-2 rounded-full overflow-hidden"><div class="h-full bg-rose-400 w-[45%] rounded-full opacity-80"></div></div>
+
+                            <div class="flex justify-between items-start mb-3 relative z-10">
+                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pengeluaran</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalExpense)}</h3></div>
+                                <div class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-all shadow-sm"><i data-lucide="arrow-down-right" width="20"></i></div>
+                            </div>
+                            <div class="w-full bg-slate-50 h-2 rounded-full overflow-hidden relative z-10"><div class="h-full bg-rose-400 w-[45%] rounded-full opacity-80"></div></div>
                         </div>
                     </div>
 
@@ -925,7 +1011,10 @@
                         <div class="lg:col-span-5">
                             <div class="card-friendly h-full flex flex-col overflow-hidden bg-white/80 backdrop-blur">
                                 <div class="p-5 border-b border-slate-50 bg-white/90 sticky top-0 z-10 flex justify-between items-center">
-                                    <h3 class="font-bold text-sm text-slate-700">Riwayat Terkini</h3>
+                                    <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2">
+                                        <div class="p-1.5 rounded-lg bg-blue-50 text-blue-500"><i data-lucide="history" width="16"></i></div>
+                                        Riwayat Terkini
+                                    </h3>
                                 </div>
                                 <div class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3" style="min-height: 400px;">
                                     ${filteredTx.length === 0 ? `<div class="p-12 text-center flex flex-col items-center justify-center opacity-40"><i data-lucide="ghost" width="48" class="mb-2"></i><p class="text-xs font-bold">Sepi banget nih...</p></div>` : ''}
@@ -969,16 +1058,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Floating Buttons (Friendly) -->
-                    <div class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
-                        <button onclick="app.openTransferModal()" class="pointer-events-auto w-12 h-12 bg-white text-indigo-500 rounded-2xl shadow-lg border-2 border-indigo-50 flex items-center justify-center hover:scale-110 transition-all hover-float" title="Transfer">
-                            <i data-lucide="arrow-right-left" width="20"></i>
-                        </button>
-                        <button onclick="app.openTransactionModal()" class="pointer-events-auto w-16 h-16 bg-slate-900 text-white rounded-[1.5rem] shadow-xl shadow-slate-400/50 flex items-center justify-center hover:scale-105 active:scale-95 transition-all hover-float group border-4 border-white">
-                            <i data-lucide="plus" width="32" class="group-hover:rotate-90 transition-transform duration-300"></i>
-                        </button>
                     </div>
                 </div>`;
         };
