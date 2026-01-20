@@ -162,7 +162,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // FIREBASE CONFIG (SAME AS BEFORE)
+        // FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyDXOfZbVDqtfGB0abQkTeILo-XC6a9xxKI",
             authDomain: "hub-dashboard-92428.firebaseapp.com",
@@ -200,7 +200,10 @@
             confirmModal: { isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' },
             notification: { show: false, title: '', message: '', type: 'success', timeout: null },
             // Edit
-            editingItem: null, editingTxId: null, selectedDebt: null, selectedPersonGroup: null, // NEW: Added selectedPersonGroup
+            editingItem: null, 
+            editingTxId: null, 
+            editingDebtId: null,
+            selectedDebt: null, selectedPersonGroup: null,
             loginCodeInput: '', expandedPerson: null,
             filter: { type: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth() },
             dashboardFilter: { type: 'all', walletId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' },
@@ -283,73 +286,24 @@
         // --- WINDOW APP METHODS ---
         window.app = {
             handleLoginInput: (val) => { state.loginCodeInput = val.toUpperCase().replace(/[^A-Z0-9]/g, ''); const el = document.getElementById('login-input'); if(el && el.value !== state.loginCodeInput) el.value = state.loginCodeInput; },
-            
-            login: (e) => { 
-                e.preventDefault(); 
-                
-                // STRICT CHECK: Hanya GAFFI12 yang boleh lewat
-                if (state.loginCodeInput !== 'GAFFI12') {
-                    return showNotification('Akses Ditolak', 'Maaf, ini aplikasi pribadi.', 'error');
-                }
-
-                // Login Sukses
-                state.accessCode = state.loginCodeInput; 
-                localStorage.setItem('finance_access_code', state.accessCode); 
-                initDataListeners(state.accessCode); 
-                showNotification('Selamat Datang', 'Akses Pemilik Diberikan', 'success'); 
-                state.shouldRefreshContent = true; 
-                render(); 
-            },
-
+            login: (e) => { e.preventDefault(); if (state.loginCodeInput !== 'GAFFI12') { return showNotification('Akses Ditolak', 'Maaf, ini aplikasi pribadi.', 'error'); } state.accessCode = state.loginCodeInput; localStorage.setItem('finance_access_code', state.accessCode); initDataListeners(state.accessCode); showNotification('Selamat Datang', 'Akses Pemilik Diberikan', 'success'); state.shouldRefreshContent = true; render(); },
             logout: () => { triggerConfirm('Mau Keluar?', 'Yakin nih mau udahan dulu?', () => { cleanupListeners(); state.accessCode = null; state.loginCodeInput = ''; localStorage.removeItem('finance_access_code'); state.activeMenu = 'dashboard'; document.getElementById('app').innerHTML = ''; render(); }, 'danger'); },
             setMenu: (menu) => { if (state.activeMenu !== menu) { state.activeMenu = menu; state.shouldRefreshContent = true; render(); } },
             setSettingsTab: (tab) => { state.settingsTab = tab; state.shouldRefreshContent = true; render(); },
-            toggleExpandPerson: (personName) => { 
-                state.expandedPerson = state.expandedPerson === personName ? null : personName;
-                const safeId = personName.replace(/[^a-zA-Z0-9]/g, '_');
-                const detailEl = document.getElementById(`details-${safeId}`);
-                const iconEl = document.getElementById(`icon-${safeId}`);
-                if (detailEl) {
-                    if (detailEl.classList.contains('grid-rows-0')) { detailEl.classList.remove('grid-rows-0'); detailEl.classList.add('grid-rows-1'); if (iconEl) iconEl.style.transform = 'rotate(180deg)'; } 
-                    else { detailEl.classList.add('grid-rows-0'); detailEl.classList.remove('grid-rows-1'); if (iconEl) iconEl.style.transform = 'rotate(0deg)'; }
-                }
-            },
+            toggleExpandPerson: (personName) => { state.expandedPerson = state.expandedPerson === personName ? null : personName; const safeId = personName.replace(/[^a-zA-Z0-9]/g, '_'); const detailEl = document.getElementById(`details-${safeId}`); const iconEl = document.getElementById(`icon-${safeId}`); if (detailEl) { if (detailEl.classList.contains('grid-rows-0')) { detailEl.classList.remove('grid-rows-0'); detailEl.classList.add('grid-rows-1'); if (iconEl) iconEl.style.transform = 'rotate(180deg)'; } else { detailEl.classList.add('grid-rows-0'); detailEl.classList.remove('grid-rows-1'); if (iconEl) iconEl.style.transform = 'rotate(0deg)'; } } },
             setTxFilter: (field, value) => { state.filter[field] = value; state.shouldRefreshContent = true; render(); },
-            
-            // PERBAIKAN: Tambahkan parameter skipRender agar tidak refresh saat ketik tanggal
-            setDashboardFilter: (field, value, skipRender = false) => { 
-                state.dashboardFilter[field] = value; 
-                if (!skipRender) {
-                    state.shouldRefreshContent = true; 
-                    render(); 
-                }
-            },
-            
-            applyDateFilter: () => {
-                state.shouldRefreshContent = true;
-                render();
-            },
-
+            setDashboardFilter: (field, value, skipRender = false) => { state.dashboardFilter[field] = value; if (!skipRender) { state.shouldRefreshContent = true; render(); } },
+            applyDateFilter: () => { state.shouldRefreshContent = true; render(); },
             resetDashboardFilter: () => { state.dashboardFilter = { type: 'all', walletId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' }; state.shouldRefreshContent = true; render(); },
             toggleWalletExclusion: async (id, currentIsExcluded) => { try { await updateDoc(doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, 'wallets', id), { isExcluded: !currentIsExcluded }); } catch (err) { console.error(err); } },
-            openSettingsModal: (mode, id = null, tabName = null) => {
-                if (tabName) state.settingsTab = tabName; 
-                if (mode === 'edit' && id) { const item = state.data[state.settingsTab].find(i => i.id === id); state.editingItem = item; state.settingsForm = { name: item.name, budget: item.budget || '', initialBalance: item.initialBalance || '', type: item.type || 'Cash', icon: item.icon, color: item.color }; } 
-                else { state.editingItem = null; state.settingsForm = { name: '', budget: '', initialBalance: '', type: 'Cash', icon: 'star', color: 'bg-indigo-400' }; }
-                state.isSettingsModalOpen = true; state.shouldRefreshContent = false; render();
-            },
+            openSettingsModal: (mode, id = null, tabName = null) => { if (tabName) state.settingsTab = tabName; if (mode === 'edit' && id) { const item = state.data[state.settingsTab].find(i => i.id === id); state.editingItem = item; state.settingsForm = { name: item.name, budget: item.budget || '', initialBalance: item.initialBalance || '', type: item.type || 'Cash', icon: item.icon, color: item.color }; } else { state.editingItem = null; state.settingsForm = { name: '', budget: '', initialBalance: '', type: 'Cash', icon: 'star', color: 'bg-indigo-400' }; } state.isSettingsModalOpen = true; state.shouldRefreshContent = false; render(); },
+            
             openTransactionModal: () => { state.editingTxId = null; state.txForm = { type: 'expense', date: getToday(), amount: '', walletId: state.data.wallets[0]?.id || '', categoryId: '', notes: '' }; state.isTransactionModalOpen = true; state.shouldRefreshContent = false; render(); },
             
-            // PERBAIKAN: Logika Edit Transaksi yang mendeteksi Pembayaran Hutang
             editTransaction: (id) => {
                 const tx = state.data.transactions.find(t => t.id === id); if (!tx) return;
-                
-                // CASE 1: Edit Pembayaran Hutang/Piutang
-                if (tx.isDebtPayment) {
-                    let personName = '';
-                    let type = '';
-                    
-                    // Cari nama orang berdasarkan data distribusi atau legacy ID
+                if (tx.isDebtPayment || tx.categoryId === 'DEBT_PAYMENT') {
+                    let personName = ''; let type = '';
                     if (tx.paymentDistribution && tx.paymentDistribution.length > 0) {
                         const debt = state.data.debts.find(d => d.id === tx.paymentDistribution[0].debtId);
                         if (debt) { personName = debt.person; type = debt.type; }
@@ -357,147 +311,80 @@
                         const debt = state.data.debts.find(d => d.id === tx.relatedDebtId);
                         if (debt) { personName = debt.person; type = debt.type; }
                     }
-
-                    // Fallback parse dari notes jika data hutang sudah dihapus
                     if (!personName && tx.notes) {
-                        const parts = tx.notes.split(' ');
-                        if (parts.length >= 3) {
-                             personName = parts.slice(2).join(' ');
-                             type = tx.notes.includes('Hutang') ? 'payable' : 'receivable';
+                        const lowerNote = tx.notes.toLowerCase();
+                        if (lowerNote.includes('hutang')) type = 'payable'; else if (lowerNote.includes('piutang')) type = 'receivable';
+                        if (type) {
+                            const splitNote = tx.notes.split(' '); const keyword = type === 'payable' ? 'hutang' : 'piutang'; const keyIndex = splitNote.findIndex(w => w.toLowerCase().includes(keyword));
+                            if (keyIndex !== -1 && keyIndex + 1 < splitNote.length) { personName = splitNote.slice(keyIndex + 1).join(' '); } else if (splitNote.length >= 3 && lowerNote.includes('pelunasan')) { personName = splitNote.slice(2).join(' '); }
                         }
                     }
-
-                    if (personName) {
-                        // Hitung total sisa seolah-olah pembayaran ini belum terjadi (untuk limit edit)
-                        const personDebts = state.data.debts.filter(d => d.person === personName && d.type === type);
-                        let currentTotalRemaining = personDebts.reduce((sum, d) => sum + (d.amount - (d.paidAmount || 0)), 0);
-                        const totalSisaForEdit = currentTotalRemaining + tx.amount;
-
+                    if (personName && type) {
+                        // PERBAIKAN: Gunakan toLowerCase() dan trim() untuk pencocokan nama yang lebih akurat
+                        const personDebts = state.data.debts.filter(d => 
+                            d.person.toLowerCase().trim() === personName.toLowerCase().trim() && 
+                            d.type === type
+                        );
+                        
+                        // PERBAIKAN: Pastikan perhitungan menggunakan Number() untuk menghindari error string
+                        let currentTotalRemaining = personDebts.reduce((sum, d) => sum + (Number(d.amount) - Number(d.paidAmount || 0)), 0);
+                        
+                        // Tambahkan kembali jumlah transaksi ini agar user melihat total SEBELUM pembayaran ini dilakukan
+                        const totalSisaForEdit = currentTotalRemaining + Number(tx.amount);
+                        
                         state.selectedPersonGroup = { name: personName, type: type, total: totalSisaForEdit };
                         state.payDebtForm = { date: tx.date, amount: tx.amount, walletId: tx.walletId, notes: tx.notes, type: type }; 
-                        state.editingTxId = id; // Tandai sedang mengedit
-                        state.isPayDebtModalOpen = true; 
-                        state.shouldRefreshContent = false; 
-                        render();
+                        state.editingTxId = id; state.isPayDebtModalOpen = true; state.shouldRefreshContent = false; render();
                         return;
                     }
                 }
-
-                // CASE 2: Edit Transfer
-                if (tx.type === 'transfer') { 
-                    state.transferForm = { date: tx.date, amount: tx.amount, fromWalletId: tx.fromWalletId, toWalletId: tx.toWalletId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransferModalOpen = true; 
-                } 
-                // CASE 3: Edit Transaksi Biasa
-                else { 
-                    state.txForm = { type: tx.type, date: tx.date, amount: tx.amount, walletId: tx.walletId, categoryId: tx.categoryId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransactionModalOpen = true; 
+                if (tx.relatedDebtId && !tx.isDebtPayment && tx.categoryId !== 'DEBT_PAYMENT') {
+                    const debt = state.data.debts.find(d => d.id === tx.relatedDebtId);
+                    if (debt) {
+                        state.debtForm = { type: debt.type, person: debt.person, amount: debt.amount, date: debt.date, dueDate: debt.dueDate || '', notes: debt.notes, isOldDebt: false, walletId: tx.walletId };
+                        state.editingTxId = id; state.editingDebtId = debt.id; state.isDebtModalOpen = true; state.shouldRefreshContent = false; render();
+                        return;
+                    }
                 }
+                if (tx.type === 'transfer') { state.transferForm = { date: tx.date, amount: tx.amount, fromWalletId: tx.fromWalletId, toWalletId: tx.toWalletId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransferModalOpen = true; } else { state.txForm = { type: tx.type, date: tx.date, amount: tx.amount, walletId: tx.walletId, categoryId: tx.categoryId, notes: tx.notes || '' }; state.editingTxId = id; state.isTransactionModalOpen = true; }
                 state.shouldRefreshContent = false; render();
             },
 
             deleteTransaction: (id) => { 
                 triggerConfirm('Hapus & Batalkan?', 'Menghapus transaksi ini akan mengembalikan saldo hutang/piutang seperti semula.', async () => { 
                     try { 
-                        const txRef = window.app.getDocPath('transactions', id);
-                        const txSnap = await getDoc(txRef);
-                        
+                        const txRef = window.app.getDocPath('transactions', id); const txSnap = await getDoc(txRef);
                         if (txSnap.exists()) {
                             const tx = txSnap.data();
-                            
-                            // Jika ini transaksi pembayaran hutang, kembalikan saldonya
                             if (tx.isDebtPayment) {
-                                // CASE A: Pembayaran Massal (Format Baru)
-                                if (tx.paymentDistribution && Array.isArray(tx.paymentDistribution)) {
-                                    for (const dist of tx.paymentDistribution) {
-                                        const debtRef = window.app.getDocPath('debts', dist.debtId);
-                                        const debtSnap = await getDoc(debtRef);
-                                        if (debtSnap.exists()) {
-                                            const debt = debtSnap.data();
-                                            const newPaid = Math.max(0, (debt.paidAmount || 0) - dist.amount);
-                                            await updateDoc(debtRef, {
-                                                paidAmount: newPaid,
-                                                status: 'active', // Status kembali aktif karena pembayaran ditarik
-                                                updatedAt: new Date().toISOString()
-                                            });
-                                        }
-                                    }
-                                } 
-                                // CASE B: Pembayaran Tunggal (Format Lama/Legacy)
-                                else if (tx.relatedDebtId) {
-                                    const debtRef = window.app.getDocPath('debts', tx.relatedDebtId);
-                                    const debtSnap = await getDoc(debtRef);
-                                    if (debtSnap.exists()) {
-                                        const debt = debtSnap.data();
-                                        const newPaid = Math.max(0, (debt.paidAmount || 0) - tx.amount);
-                                        await updateDoc(debtRef, {
-                                            paidAmount: newPaid,
-                                            status: 'active',
-                                            updatedAt: new Date().toISOString()
-                                        });
-                                    }
-                                }
+                                if (tx.paymentDistribution && Array.isArray(tx.paymentDistribution)) { for (const dist of tx.paymentDistribution) { const debtRef = window.app.getDocPath('debts', dist.debtId); const debtSnap = await getDoc(debtRef); if (debtSnap.exists()) { const debt = debtSnap.data(); const newPaid = Math.max(0, (debt.paidAmount || 0) - dist.amount); await updateDoc(debtRef, { paidAmount: newPaid, status: 'active', updatedAt: new Date().toISOString() }); } } } 
+                                else if (tx.relatedDebtId) { const debtRef = window.app.getDocPath('debts', tx.relatedDebtId); const debtSnap = await getDoc(debtRef); if (debtSnap.exists()) { const debt = debtSnap.data(); const newPaid = Math.max(0, (debt.paidAmount || 0) - tx.amount); await updateDoc(debtRef, { paidAmount: newPaid, status: 'active', updatedAt: new Date().toISOString() }); } }
                             }
-                            
-                            // Hapus transaksi setelah saldo dikembalikan
-                            await deleteDoc(txRef); 
-                            showNotification('Sip', 'Transaksi dihapus & Saldo dikembalikan'); 
+                            if (tx.relatedDebtId && !tx.isDebtPayment) { await deleteDoc(window.app.getDocPath('debts', tx.relatedDebtId)); }
+                            await deleteDoc(txRef); showNotification('Sip', 'Data dihapus'); 
                         }
-                    } catch (err) { 
-                        console.error(err); 
-                        showNotification('Gagal', 'Gagal menghapus data', 'error');
-                    } 
+                    } catch (err) { console.error(err); showNotification('Gagal', 'Gagal menghapus data', 'error'); } 
                 }, 'danger'); 
             },
+
             openTransferModal: () => { state.editingTxId = null; state.transferForm = { date: getToday(), amount: '', fromWalletId: state.data.wallets[0]?.id || '', toWalletId: state.data.wallets[1]?.id || '', notes: '' }; state.isTransferModalOpen = true; state.shouldRefreshContent = false; render(); },
-            openDebtModal: () => { state.debtForm = { type: 'payable', person: '', amount: '', date: getToday(), dueDate: '', notes: '', isOldDebt: false, walletId: state.data.wallets[0]?.id || '' }; state.isDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
-            openPayDebtModal: (personName, type, totalAmount) => { 
-                state.selectedPersonGroup = { name: personName, type: type, total: totalAmount }; 
-                state.payDebtForm = { date: getToday(), amount: totalAmount, walletId: state.data.wallets[0]?.id || '', notes: '', type: type }; 
-                state.isPayDebtModalOpen = true; state.shouldRefreshContent = false; render(); 
-            },
+            openDebtModal: () => { state.editingDebtId = null; state.editingTxId = null; state.debtForm = { type: 'payable', person: '', amount: '', date: getToday(), dueDate: '', notes: '', isOldDebt: false, walletId: state.data.wallets[0]?.id || '' }; state.isDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
+            openAddDebtForPerson: (name) => { state.editingDebtId = null; state.editingTxId = null; state.debtForm = { type: 'payable', person: name, amount: '', date: getToday(), dueDate: '', notes: '', isOldDebt: false, walletId: state.data.wallets[0]?.id || '' }; state.isDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
+            confirmEditTx: (id) => { triggerConfirm('Edit Pembayaran?', 'Anda akan mengubah data pembayaran ini.', () => { window.app.editTransaction(id); }, 'info'); },
+            openPayDebtModal: (personName, type, totalAmount) => { state.selectedPersonGroup = { name: personName, type: type, total: totalAmount }; state.payDebtForm = { date: getToday(), amount: totalAmount, walletId: state.data.wallets[0]?.id || '', notes: '', type: type }; state.isPayDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
             closeAllModals: () => { state.isSettingsModalOpen = false; state.isTransactionModalOpen = false; state.isTransferModalOpen = false; state.isDebtModalOpen = false; state.isPayDebtModalOpen = false; state.shouldRefreshContent = false; render(); },
             setTxType: (type) => { state.txForm.type = type; state.txForm.categoryId = ''; render(); },
             setTxWallet: (id) => { state.txForm.walletId = id; updateVisualSelection('.tx-wallet-btn', id, 'tx-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'tx-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50 hover:border-slate-200'); },
             selectCategory: (id) => { state.txForm.categoryId = id; updateVisualSelection('.tx-cat-btn', id, 'tx-cat-btn flex flex-col items-center gap-2 p-2 rounded-2xl transition-all border bg-white border-indigo-400 ring-4 ring-indigo-50 shadow-md transform scale-105', 'tx-cat-btn flex flex-col items-center gap-2 p-2 rounded-2xl transition-all border bg-white border-slate-100 hover:bg-slate-50 hover:border-slate-300 opacity-70 hover:opacity-100'); },
             setTransferWallet: (field, id) => { state.transferForm[field] = id; const colorClass = field === 'fromWalletId' ? 'rose' : 'emerald'; updateVisualSelection(`.transfer-${field}-btn`, id, `transfer-${field}-btn p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all bg-${colorClass}-50 border-${colorClass}-400 ring-2 ring-${colorClass}-100`, `transfer-${field}-btn p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all bg-white border-slate-100 hover:bg-slate-50`); },
             setDebtType: (type) => { state.debtForm.type = type; render(); },
-            
-            // PERBAIKAN: Toggle visual tanpa render ulang agar tidak kedip
-            toggleDebtOld: (checked) => { 
-                state.debtForm.isOldDebt = checked; 
-                const el = document.getElementById('debt-wallet-section');
-                if (el) el.style.display = checked ? 'none' : 'block';
-            },
-            
+            toggleDebtOld: (checked) => { state.debtForm.isOldDebt = checked; const el = document.getElementById('debt-wallet-section'); if (el) el.style.display = checked ? 'none' : 'block'; },
             setDebtWallet: (id) => { state.debtForm.walletId = id; updateVisualSelection('.debt-wallet-btn', id, 'debt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'debt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50'); },
             setPayDebtWallet: (id) => { state.payDebtForm.walletId = id; updateVisualSelection('.paydebt-wallet-btn', id, 'paydebt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'paydebt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50'); },
             setSettingsColor: (c) => { state.settingsForm.color = c; const buttons = document.querySelectorAll('.settings-color-btn'); buttons.forEach(btn => { if (btn.dataset.value === c) btn.className = `settings-color-btn w-10 h-10 rounded-full ${c} ring-4 ring-offset-2 ring-slate-200 scale-110 shadow-md transition-all`; else btn.className = `settings-color-btn w-10 h-10 rounded-full ${btn.dataset.value} transition-all hover:scale-110 opacity-70 hover:opacity-100`; }); },
             setSettingsIcon: (i) => { state.settingsForm.icon = i; updateVisualSelection('.settings-icon-btn', i, `settings-icon-btn p-2.5 rounded-2xl flex justify-center transition-all bg-indigo-500 text-white shadow-lg scale-110 rotate-3`, `settings-icon-btn p-2.5 rounded-2xl flex justify-center transition-all bg-white text-slate-300 hover:bg-slate-100 hover:text-slate-500 shadow-sm`); },
             updateForm: (formName, field, value) => { state[formName][field] = value; },
-            handleNumberInput: (targetObj, field, el) => { 
-                // PERBAIKAN: Deteksi tanda minus di awal input
-                const isNegative = el.value.startsWith('-');
-                let rawValue = el.value.replace(/\D/g, ''); 
-                
-                if (rawValue.length > 1 && rawValue.startsWith('0')) rawValue = rawValue.substring(1); 
-                
-                // Simpan value (jadikan negatif jika ada tanda minus)
-                let numVal = rawValue === '' ? '' : parseInt(rawValue, 10);
-                if (isNegative && numVal !== '') numVal = -numVal;
-                
-                state[targetObj][field] = numVal; 
-                
-                // Format tampilan kembali
-                let formatted = formatNumberString(rawValue); 
-                if (isNegative) formatted = '-' + formatted;
-                
-                if (el.value !== formatted) { 
-                    const start = el.selectionStart; 
-                    const drift = formatted.length - el.value.length; 
-                    el.value = formatted; 
-                    const newPos = Math.max(0, start + drift); 
-                    if(el.setSelectionRange) el.setSelectionRange(newPos, newPos); 
-                } 
-            },
+            handleNumberInput: (targetObj, field, el) => { const isNegative = el.value.startsWith('-'); let rawValue = el.value.replace(/\D/g, ''); if (rawValue.length > 1 && rawValue.startsWith('0')) rawValue = rawValue.substring(1); let numVal = rawValue === '' ? '' : parseInt(rawValue, 10); if (isNegative && numVal !== '') numVal = -numVal; state[targetObj][field] = numVal; let formatted = formatNumberString(rawValue); if (isNegative) formatted = '-' + formatted; if (el.value !== formatted) { const start = el.selectionStart; const drift = formatted.length - el.value.length; el.value = formatted; const newPos = Math.max(0, start + drift); if(el.setSelectionRange) el.setSelectionRange(newPos, newPos); } },
             getDbPath: (col) => collection(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, col),
             getDocPath: (col, id) => doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, col, id),
             
@@ -505,116 +392,96 @@
             deleteSettingsItem: (tab, id) => { state.settingsTab = tab; triggerConfirm('Hapus?', 'Gak bisa dibalikin lho.', async () => { try { await deleteDoc(window.app.getDocPath(getCollectionName(tab), id)); showNotification('Dihapus', 'Sudah hilang'); } catch (err) { console.error(err); } }, 'danger'); },
             submitTransaction: async (e) => { e.preventDefault(); if (!state.accessCode) return; const { txForm, editingTxId } = state; if (!txForm.categoryId || !txForm.walletId || !txForm.amount) return showNotification('Eits', 'Data belum lengkap', 'error'); state.isSubmitting = true; render(); const txData = { type: txForm.type, date: txForm.date, amount: Number(txForm.amount), walletId: txForm.walletId, categoryId: txForm.categoryId, notes: txForm.notes, updatedAt: new Date().toISOString() }; try { if (editingTxId) { await updateDoc(window.app.getDocPath('transactions', editingTxId), txData); showNotification('Mantap', 'Transaksi diupdate'); } else { txData.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath('transactions'), txData); showNotification('Sukses', 'Transaksi dicatat'); } state.isTransactionModalOpen = false; state.editingTxId = null; } catch (err) { console.error(err); showNotification('Gagal', 'Coba lagi ya', 'error'); } finally { state.isSubmitting = false; render(); } },
             submitTransfer: async (e) => { e.preventDefault(); if (!state.accessCode) return; const { transferForm, editingTxId } = state; if (!transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount) return showNotification('Eits', 'Lengkapi dulu datanya', 'error'); state.isSubmitting = true; render(); const txData = { type: 'transfer', date: transferForm.date, amount: Number(transferForm.amount), fromWalletId: transferForm.fromWalletId, toWalletId: transferForm.toWalletId, notes: transferForm.notes, updatedAt: new Date().toISOString() }; try { if (editingTxId) { await updateDoc(window.app.getDocPath('transactions', editingTxId), txData); showNotification('Oke', 'Transfer diupdate'); } else { txData.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath('transactions'), txData); showNotification('Berhasil', 'Uang sudah pindah'); } state.isTransferModalOpen = false; state.editingTxId = null; } catch (err) { console.error(err); showNotification('Gagal', 'Ada masalah', 'error'); } finally { state.isSubmitting = false; render(); } },
-            submitDebt: async (e) => { e.preventDefault(); if (!state.accessCode) return; const { debtForm } = state; if (!debtForm.person || !debtForm.amount) return showNotification('Eits', 'Isi dulu yang lengkap', 'error'); if (!debtForm.isOldDebt && !debtForm.walletId) return showNotification('Peringatan', 'Pilih dompet dulu', 'error'); state.isSubmitting = true; render(); const newDebt = { type: debtForm.type, person: debtForm.person, amount: Number(debtForm.amount), paidAmount: 0, date: debtForm.date, dueDate: debtForm.dueDate || null, notes: debtForm.notes, isOldDebt: debtForm.isOldDebt, status: 'active', createdAt: new Date().toISOString() }; try { const docRef = await addDoc(window.app.getDbPath('debts'), newDebt); if (!debtForm.isOldDebt) { const isPayable = debtForm.type === 'payable'; const txData = { type: isPayable ? 'income' : 'expense', date: debtForm.date, amount: Number(debtForm.amount), walletId: debtForm.walletId, categoryId: isPayable ? 'DEBT_IN' : 'DEBT_OUT', notes: `${isPayable ? 'Hutang dari' : 'Piutang ke'} ${debtForm.person}: ${debtForm.notes}`, relatedDebtId: docRef.id, createdAt: new Date().toISOString() }; await addDoc(window.app.getDbPath('transactions'), txData); } state.isDebtModalOpen = false; showNotification('Sip', 'Hutang dicatat'); } catch (err) { console.error(err); showNotification('Gagal', 'Error nih', 'error'); } finally { state.isSubmitting = false; render(); } },
+            submitDebt: async (e) => { 
+                e.preventDefault(); if (!state.accessCode) return; const { debtForm, editingDebtId, editingTxId } = state; 
+                if (!debtForm.person || !debtForm.amount) return showNotification('Eits', 'Isi dulu yang lengkap', 'error'); 
+                if (!debtForm.isOldDebt && !debtForm.walletId) return showNotification('Peringatan', 'Pilih dompet dulu', 'error'); 
+                state.isSubmitting = true; render(); 
+                const debtData = { type: debtForm.type, person: debtForm.person, amount: Number(debtForm.amount), date: debtForm.date, dueDate: debtForm.dueDate || null, notes: debtForm.notes, isOldDebt: debtForm.isOldDebt, updatedAt: new Date().toISOString() }; 
+                try { 
+                    let finalDebtId = editingDebtId;
+                    if (editingDebtId) { const oldDebt = state.data.debts.find(d => d.id === editingDebtId); debtData.paidAmount = oldDebt ? oldDebt.paidAmount : 0; debtData.status = (debtData.paidAmount >= debtData.amount) ? 'paid' : 'active'; await updateDoc(window.app.getDocPath('debts', editingDebtId), debtData); } 
+                    else { debtData.paidAmount = 0; debtData.status = 'active'; debtData.createdAt = new Date().toISOString(); const docRef = await addDoc(window.app.getDbPath('debts'), debtData); finalDebtId = docRef.id; }
+                    if (!debtForm.isOldDebt) { 
+                        const isPayable = debtForm.type === 'payable'; 
+                        const txData = { type: isPayable ? 'income' : 'expense', date: debtForm.date, amount: Number(debtForm.amount), walletId: debtForm.walletId, categoryId: isPayable ? 'DEBT_IN' : 'DEBT_OUT', notes: `${isPayable ? 'Hutang dari' : 'Piutang ke'} ${debtForm.person}: ${debtForm.notes}`, relatedDebtId: finalDebtId, updatedAt: new Date().toISOString() }; 
+                        if (editingTxId) { await updateDoc(window.app.getDocPath('transactions', editingTxId), txData); } else { txData.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath('transactions'), txData); }
+                    } else { if (editingTxId) { await deleteDoc(window.app.getDocPath('transactions', editingTxId)); } }
+                    state.isDebtModalOpen = false; state.editingDebtId = null; state.editingTxId = null; showNotification('Sip', editingDebtId ? 'Data diperbarui' : 'Hutang dicatat'); 
+                } catch (err) { console.error(err); showNotification('Gagal', 'Error nih', 'error'); } finally { state.isSubmitting = false; render(); } 
+            },
             
-            // PERBAIKAN: Logika Simpan Pembayaran (Support Edit dengan Rollback)
+            // PERBAIKAN: Fungsi Submit Payment yang Lebih Robust (Case Insensitive + Number Safety)
             submitDebtPayment: async (e) => { 
-                e.preventDefault(); 
-                if (!state.accessCode) return; 
+                e.preventDefault(); if (!state.accessCode) return; 
                 const { payDebtForm, selectedPersonGroup, editingTxId } = state; 
                 if (!payDebtForm.amount || !payDebtForm.walletId) return showNotification('Eits', 'Data kurang', 'error'); 
+                let paymentAmount = Number(payDebtForm.amount); 
                 
-                let paymentAmount = Number(payDebtForm.amount);
-                if (paymentAmount > selectedPersonGroup.total) return showNotification('Kelebihan', 'Melebihi total tagihan', 'error'); 
-
+                // Cek limit dengan safety margin (toleransi 1 rupiah utk floating point)
+                if (paymentAmount > (selectedPersonGroup.total + 1)) return showNotification('Kelebihan', 'Melebihi total tagihan', 'error'); 
+                
                 state.isSubmitting = true; render(); 
-                
                 try { 
-                    // TAHAP 1: ROLLBACK JIKA SEDANG EDIT
-                    // Kembalikan saldo hutang seperti sebelum transaksi ini terjadi
-                    if (editingTxId) {
-                        const oldTx = state.data.transactions.find(t => t.id === editingTxId);
-                        if (oldTx && oldTx.isDebtPayment) {
-                             if (oldTx.paymentDistribution && Array.isArray(oldTx.paymentDistribution)) {
-                                for (const dist of oldTx.paymentDistribution) {
-                                    const debt = state.data.debts.find(d => d.id === dist.debtId);
-                                    if (debt) {
-                                        const newPaid = Math.max(0, (debt.paidAmount || 0) - dist.amount);
-                                        await updateDoc(window.app.getDocPath('debts', debt.id), {
-                                            paidAmount: newPaid,
-                                            status: 'active',
-                                            updatedAt: new Date().toISOString()
-                                        });
-                                        // Update state lokal manual agar tahap 2 membaca data yang benar
-                                        debt.paidAmount = newPaid; 
-                                    }
-                                }
-                            } else if (oldTx.relatedDebtId) {
-                                const debt = state.data.debts.find(d => d.id === oldTx.relatedDebtId);
-                                if (debt) {
-                                    const newPaid = Math.max(0, (debt.paidAmount || 0) - oldTx.amount);
-                                    await updateDoc(window.app.getDocPath('debts', debt.id), { paidAmount: newPaid, status: 'active', updatedAt: new Date().toISOString() });
-                                    debt.paidAmount = newPaid;
-                                }
-                            }
-                        }
-                    }
-
-                    // TAHAP 2: DISTRIBUSI PEMBAYARAN BARU
-                    // Ambil hutang yang masih aktif, urutkan dari yang terlama
-                    const personDebts = state.data.debts.filter(d => 
-                        d.person === selectedPersonGroup.name && 
-                        d.type === selectedPersonGroup.type && 
-                        (d.amount - (d.paidAmount || 0) > 0)
-                    ).sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                    let remainingToPay = paymentAmount;
-                    const paymentDistribution = []; 
-
-                    for (const debt of personDebts) {
-                        if (remainingToPay <= 0) break;
-
-                        const debtRemaining = debt.amount - (debt.paidAmount || 0);
-                        const payForThis = Math.min(remainingToPay, debtRemaining);
-                        
-                        const newPaidTotal = (debt.paidAmount || 0) + payForThis;
-                        const newStatus = newPaidTotal >= debt.amount ? 'paid' : 'active';
-                        
-                        await updateDoc(window.app.getDocPath('debts', debt.id), { 
-                            paidAmount: newPaidTotal, 
-                            status: newStatus, 
-                            updatedAt: new Date().toISOString() 
-                        });
-                        
-                        paymentDistribution.push({ debtId: debt.id, amount: payForThis });
-                        remainingToPay -= payForThis;
-                    }
-
-                    // TAHAP 3: SIMPAN/UPDATE TRANSAKSI
-                    const isPayable = selectedPersonGroup.type === 'payable'; 
-                    const txData = { 
-                        type: isPayable ? 'expense' : 'income', 
-                        date: payDebtForm.date, 
-                        amount: paymentAmount, 
-                        walletId: payDebtForm.walletId, 
-                        categoryId: 'DEBT_PAYMENT', 
-                        notes: `Pelunasan ${isPayable ? 'Hutang' : 'Piutang'} ${selectedPersonGroup.name}`, 
-                        updatedAt: new Date().toISOString(), 
-                        isDebtPayment: true,
-                        paymentDistribution: paymentDistribution 
-                    }; 
-
-                    if (editingTxId) {
-                        await updateDoc(window.app.getDocPath('transactions', editingTxId), txData);
-                        showNotification('Sip', 'Pembayaran diperbarui!');
-                    } else {
-                        txData.createdAt = new Date().toISOString();
-                        await addDoc(window.app.getDbPath('transactions'), txData);
-                        showNotification('Lunas?', 'Pembayaran tercatat!');
-                    }
+                    // 1. Rollback jika Edit
+                    if (editingTxId) { 
+                        const oldTx = state.data.transactions.find(t => t.id === editingTxId); 
+                        if (oldTx && oldTx.isDebtPayment) { 
+                            if (oldTx.paymentDistribution && Array.isArray(oldTx.paymentDistribution)) { 
+                                for (const dist of oldTx.paymentDistribution) { 
+                                    const debt = state.data.debts.find(d => d.id === dist.debtId); 
+                                    if (debt) { 
+                                        const newPaid = Math.max(0, (Number(debt.paidAmount) || 0) - Number(dist.amount)); 
+                                        await updateDoc(window.app.getDocPath('debts', debt.id), { paidAmount: newPaid, status: 'active', updatedAt: new Date().toISOString() }); 
+                                        debt.paidAmount = newPaid; // Update lokal segera
+                                    } 
+                                } 
+                            } else if (oldTx.relatedDebtId) { 
+                                const debt = state.data.debts.find(d => d.id === oldTx.relatedDebtId); 
+                                if (debt) { 
+                                    const newPaid = Math.max(0, (Number(debt.paidAmount) || 0) - Number(oldTx.amount)); 
+                                    await updateDoc(window.app.getDocPath('debts', debt.id), { paidAmount: newPaid, status: 'active', updatedAt: new Date().toISOString() }); 
+                                    debt.paidAmount = newPaid; 
+                                } 
+                            } 
+                        } 
+                    } 
                     
-                    state.isPayDebtModalOpen = false; 
-                    state.editingTxId = null; 
-                } catch (err) { 
-                    console.error("Error", err); 
-                    showNotification('Gagal', 'Coba lagi', 'error'); 
-                } finally { 
-                    state.isSubmitting = false; 
-                    render(); 
-                } 
+                    // 2. Distribusi Pembayaran Baru
+                    // Menggunakan filter yang sama dengan editTransaction (Case Insensitive & Number)
+                    const personDebts = state.data.debts.filter(d => 
+                        d.person.toLowerCase().trim() === selectedPersonGroup.name.toLowerCase().trim() && 
+                        d.type === selectedPersonGroup.type && 
+                        (Number(d.amount) - Number(d.paidAmount || 0) > 0)
+                    ).sort((a, b) => new Date(a.date) - new Date(b.date)); 
+                    
+                    let remainingToPay = paymentAmount; 
+                    const paymentDistribution = []; 
+                    
+                    for (const debt of personDebts) { 
+                        if (remainingToPay <= 0) break; 
+                        const debtRemaining = Number(debt.amount) - Number(debt.paidAmount || 0); 
+                        const payForThis = Math.min(remainingToPay, debtRemaining); 
+                        const newPaidTotal = Number(debt.paidAmount || 0) + payForThis; 
+                        const newStatus = newPaidTotal >= Number(debt.amount) ? 'paid' : 'active'; 
+                        
+                        await updateDoc(window.app.getDocPath('debts', debt.id), { paidAmount: newPaidTotal, status: newStatus, updatedAt: new Date().toISOString() }); 
+                        paymentDistribution.push({ debtId: debt.id, amount: payForThis }); 
+                        remainingToPay -= payForThis; 
+                    } 
+                    
+                    const isPayable = selectedPersonGroup.type === 'payable'; 
+                    const txData = { type: isPayable ? 'expense' : 'income', date: payDebtForm.date, amount: paymentAmount, walletId: payDebtForm.walletId, categoryId: 'DEBT_PAYMENT', notes: `Pelunasan ${isPayable ? 'Hutang' : 'Piutang'} ${selectedPersonGroup.name}`, updatedAt: new Date().toISOString(), isDebtPayment: true, paymentDistribution: paymentDistribution }; 
+                    
+                    if (editingTxId) { await updateDoc(window.app.getDocPath('transactions', editingTxId), txData); showNotification('Sip', 'Pembayaran diperbarui!'); } 
+                    else { txData.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath('transactions'), txData); showNotification('Lunas?', 'Pembayaran tercatat!'); } 
+                    
+                    state.isPayDebtModalOpen = false; state.editingTxId = null; 
+                } catch (err) { console.error("Error", err); showNotification('Gagal', 'Coba lagi', 'error'); } 
+                finally { state.isSubmitting = false; render(); } 
             },
-
-            deleteDebt: (id) => { triggerConfirm('Hapus?', 'Data akan hilang selamanya.', async () => { try { await deleteDoc(window.app.getDocPath('debts', id)); showNotification('Dihapus', 'Data dihapus'); } catch (err) { console.error(err); } }, 'danger'); },
+            
+            deleteDebt: (id) => { triggerConfirm('Hapus Data?', 'Hutang beserta riwayat transaksi pembuatannya akan dihapus permanen.', async () => { try { await deleteDoc(window.app.getDocPath('debts', id)); const relatedTxs = state.data.transactions.filter(t => t.relatedDebtId === id); for (const tx of relatedTxs) { await deleteDoc(window.app.getDocPath('transactions', tx.id)); } showNotification('Beres', 'Data hutang & transaksi dihapus'); } catch (err) { console.error(err); showNotification('Gagal', 'Gagal menghapus data', 'error'); } }, 'danger'); },
             executeConfirm, closeConfirm
         };
 
@@ -719,7 +586,7 @@
                         <div id="main-content-area" class="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24"></div> <!-- Reduced padding -->
                     </main>
                     
-                    <!-- PERBAIKAN: Wadah Tombol Floating Action Button (FAB) dipisah agar selalu di atas & pojok -->
+                    <!-- Wadah Tombol Floating Action Button (FAB) -->
                     <div id="fab-container" class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none transition-opacity duration-300"></div>
 
                     <div id="modal-area"></div>
@@ -730,11 +597,10 @@
             }
             updateNavbarActiveState();
 
-            // PERBAIKAN: Logika Render Tombol Floating (Hanya di Dashboard)
+            // Logika Render Tombol Floating (Hanya di Dashboard)
             const fabContainer = document.getElementById('fab-container');
             if (fabContainer) {
                 if (state.activeMenu === 'dashboard') {
-                    // Render tombol jika belum ada isinya (untuk efisiensi) atau jika menu berubah
                     if (fabContainer.innerHTML.trim() === '') {
                         fabContainer.innerHTML = `
                             <button onclick="app.openTransferModal()" class="pointer-events-auto w-12 h-12 bg-white text-indigo-500 rounded-2xl shadow-lg border-2 border-indigo-50 flex items-center justify-center hover:scale-110 transition-all hover-float" title="Transfer">
@@ -747,7 +613,6 @@
                         lucide.createIcons({ root: fabContainer });
                     }
                 } else {
-                    // Sembunyikan tombol di menu lain
                     fabContainer.innerHTML = '';
                     fabContainer.classList.add('opacity-0', 'invisible');
                 }
@@ -824,11 +689,10 @@
             
             return `
                 <div class="space-y-6"> 
-                    <!-- FILTER SECTION: 3 Rows on Mobile, 1 Row on Desktop -->
+                    <!-- FILTER SECTION -->
                     <div class="card-friendly p-3 lg:p-4">
                         <div class="flex flex-col lg:flex-row gap-3 lg:items-end justify-between">
-                            
-                            <!-- 1. Rentang Waktu (Compact) -->
+                            <!-- 1. Rentang Waktu -->
                             <div class="flex flex-col gap-1.5 w-full lg:w-auto flex-shrink-0">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Rentang Waktu</span>
                                 <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1.5 rounded-xl transition-all w-full lg:w-auto">
@@ -841,11 +705,8 @@
                                     <button onclick="app.applyDateFilter()" class="bg-indigo-500 hover:bg-indigo-600 text-white p-1.5 rounded-lg transition-all shadow-sm active:scale-95 flex-shrink-0" title="Terapkan"><i data-lucide="search" width="14"></i></button>
                                 </div>
                             </div>
-
-                            <!-- Divider (Desktop Only) -->
                             <div class="hidden lg:block w-px h-10 bg-slate-200 mb-1 mx-1"></div>
-
-                            <!-- 2. Jenis Transaksi (Flexible Width + Icon & Text) -->
+                            <!-- 2. Jenis Transaksi -->
                             <div class="flex flex-col gap-1.5 w-full lg:flex-1 min-w-0">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Jenis Transaksi</span>
                                 <div class="flex bg-slate-100 p-1 rounded-xl gap-1 w-full overflow-x-auto no-scrollbar">
@@ -860,11 +721,8 @@
                                     }).join('')}
                                 </div>
                             </div>
-
-                            <!-- Divider (Desktop Only) -->
                             <div class="hidden lg:block w-px h-10 bg-slate-200 mb-1 mx-1"></div>
-
-                            <!-- 3. Filter Dompet (Fixed Size) -->
+                            <!-- 3. Filter Dompet -->
                             <div class="flex flex-col gap-1.5 w-full lg:w-auto flex-shrink-0">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Filter Dompet</span>
                                 <div class="flex gap-2 w-full lg:w-auto">
@@ -879,46 +737,37 @@
                                     <button onclick="app.resetDashboardFilter()" class="w-[42px] h-[42px] flex-shrink-0 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:shadow-sm flex items-center justify-center transition-all active:rotate-180 duration-500" title="Reset Semua Filter"><i data-lucide="rotate-ccw" width="16"></i></button>
                                 </div>
                             </div>
-
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                         <!-- Saldo Bersih Card -->
                         <div class="rounded-[1.75rem] bg-gradient-to-br from-violet-500 to-fuchsia-600 p-6 text-white shadow-xl shadow-violet-300 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
-                            <!-- Background Decoration -->
                             <div class="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
                             <div class="absolute -right-4 -bottom-8 text-white opacity-10 transform rotate-12 group-hover:scale-110 group-hover:rotate-0 transition-all duration-1000">
                                 <i data-lucide="wallet-cards" width="130" height="130"></i>
                             </div>
-                            
                             <div class="relative z-10">
                                 <p class="text-violet-100 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2"><i data-lucide="wallet" width="14"></i> Saldo Bersih</p>
                                 <h3 class="text-3xl font-black tracking-tight">${formatRupiah(totalAssets)}</h3>
                             </div>
                         </div>
-
                         <!-- Pemasukan Card -->
                         <div class="rounded-[1.75rem] bg-white p-6 border border-slate-100 shadow-lg shadow-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
-                            <!-- Background Decoration -->
                             <div class="absolute -right-6 -bottom-6 text-emerald-50 opacity-60 transform rotate-12 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-700">
                                 <i data-lucide="trending-up" width="100" height="100"></i>
                             </div>
-
                             <div class="flex justify-between items-start mb-3 relative z-10">
                                 <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pemasukan</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalIncome)}</h3></div>
                                 <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-sm"><i data-lucide="arrow-up-right" width="20"></i></div>
                             </div>
                             <div class="w-full bg-slate-50 h-2 rounded-full overflow-hidden relative z-10"><div class="h-full bg-emerald-400 w-[70%] rounded-full opacity-80"></div></div>
                         </div>
-
                         <!-- Pengeluaran Card -->
                         <div class="rounded-[1.75rem] bg-white p-6 border border-slate-100 shadow-lg shadow-slate-100 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
-                             <!-- Background Decoration -->
                             <div class="absolute -right-6 -bottom-6 text-rose-50 opacity-60 transform rotate-12 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-700">
                                 <i data-lucide="trending-down" width="100" height="100"></i>
                             </div>
-
                             <div class="flex justify-between items-start mb-3 relative z-10">
                                 <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pengeluaran</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalExpense)}</h3></div>
                                 <div class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-all shadow-sm"><i data-lucide="arrow-down-right" width="20"></i></div>
@@ -928,10 +777,10 @@
                     </div>
 
                     <!-- Main Grid -->
-                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6"> <!-- Gap proporsional -->
-                        <!-- Left Column (Layout Tetap) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6"> 
+                        <!-- Left Column -->
                         <div class="lg:col-span-7 space-y-6">
-                            <!-- Wallets (Sorted by Balance) -->
+                            <!-- Wallets -->
                             <div class="card-friendly overflow-hidden">
                                 <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between">
                                     <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><div class="bg-indigo-100 p-1.5 rounded-lg text-indigo-500"><i data-lucide="credit-card" width="16"></i></div> Dompetku</h3>
@@ -945,33 +794,32 @@
                                 </div>
                             </div>
 
-                            <!-- Analisa Budget Header & Card -->
+                            <!-- Analisa Budget -->
                             <div>
                                 <h3 class="font-black text-base text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="bar-chart-3" width="18" class="text-indigo-500"></i> Analisa Budget</h3>
                                 <div class="card-friendly p-6 relative overflow-hidden bg-white">
                                     <div class="flex justify-between items-end mb-5 relative z-10">
                                         <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Target Budget</p><h3 class="text-xl font-black text-slate-800">${formatRupiah(totalBudgetSpent)} <span class="text-slate-300 font-normal">/ ${formatRupiah(totalBudget)}</span></h3></div>
-                                        <div class="w-12 h-12 rounded-full flex items-center justify-center font-black text-xs ${totalBudgetPercent > 100 ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-indigo-600'}">${totalBudgetPercent.toFixed(0)}%</div>
+                                        <div class="w-12 h-12 rounded-full flex items-center justify-center font-black text-xs ${totalBudgetPercent > 100 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}">${totalBudgetPercent.toFixed(0)}%</div>
                                     </div>
                                     <div class="h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner p-1">
-                                        <div class="h-full rounded-full ${totalBudgetPercent > 100 ? 'bg-rose-400' : 'bg-gradient-to-r from-indigo-400 to-violet-400'} transition-all duration-1000 ease-out shadow-sm" style="width: ${Math.min(100, totalBudgetPercent)}%"></div>
+                                        <div class="h-full rounded-full ${totalBudgetPercent > 100 ? 'bg-rose-400' : 'bg-emerald-400'} transition-all duration-1000 ease-out shadow-sm" style="width: ${Math.min(100, totalBudgetPercent)}%"></div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Budget List (Kategori) - FULL WIDTH -->
+                            <!-- Budget List -->
                             <div class="card-friendly p-5">
                                 <h4 class="font-bold text-slate-700 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 rounded-lg bg-indigo-100 text-indigo-500"><i data-lucide="pie-chart" width="14"></i></div> Kategori</h4>
                                 <div class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scroll">
                                     ${budgetData.map(cat => { 
                                         const percent = Math.min(100, cat.percent); 
+                                        const isOver = cat.percent > 100;
+                                        const badgeClass = isOver ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200';
                                         return `<div class="group">
                                             <div class="flex justify-between items-end text-xs mb-1.5">
-                                                <div>
-                                                    <span class="block font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">${cat.name}</span>
-                                                    <span class="text-[10px] text-slate-400 font-medium">${formatRupiah(cat.spent)} <span class="text-slate-300">/ ${cat.budget > 0 ? formatRupiah(cat.budget) : '∞'}</span></span>
-                                                </div>
-                                                <span class="font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">${Math.round(cat.percent)}%</span>
+                                                <div><span class="block font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">${cat.name}</span><span class="text-[10px] text-slate-400 font-medium">${formatRupiah(cat.spent)} <span class="text-slate-300">/ ${cat.budget > 0 ? formatRupiah(cat.budget) : '∞'}</span></span></div>
+                                                <span class="font-bold px-2 py-0.5 rounded-md border ${badgeClass}">${Math.round(cat.percent)}%</span>
                                             </div>
                                             <div class="h-2.5 bg-slate-50 rounded-full overflow-hidden">
                                                 <div class="h-full rounded-full ${cat.percent > 100 ? 'bg-rose-400' : 'bg-indigo-400'} opacity-80" style="width: ${cat.budget > 0 ? percent : 0}%"></div>
@@ -981,15 +829,12 @@
                                 </div>
                             </div>
 
-                            <!-- Details Grid Split: Boros Di & Top 5 Expenses -->
+                            <!-- Details Grid -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Boros Di -->
                                 <div class="card-friendly p-5">
                                     <h4 class="font-bold text-slate-700 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 rounded-lg bg-rose-100 text-rose-500"><i data-lucide="trending-up" width="14"></i></div> Boros Di?</h4>
                                     <div class="space-y-3">${topCategories.map((cat, idx) => `<div class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"><div class="flex items-center gap-3"><span class="font-black text-slate-300 text-sm w-5">#${idx+1}</span><div class="w-2 h-2 rounded-full ${cat.color}"></div><span class="text-slate-600 font-bold text-xs">${cat.name}</span></div><span class="font-bold text-slate-800 text-xs">${formatRupiah(cat.spent)}</span></div>`).join('')}</div>
                                 </div>
-                                
-                                <!-- Top 5 Expenses -->
                                 <div class="card-friendly p-5">
                                     <h4 class="font-bold text-slate-700 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 rounded-lg bg-orange-100 text-orange-500"><i data-lucide="alert-circle" width="14"></i></div> 5 Terbesar</h4>
                                     <div class="space-y-3">
@@ -998,10 +843,7 @@
                                             <div class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group">
                                                 <div class="flex items-center gap-3 overflow-hidden">
                                                     <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs group-hover:bg-orange-100 group-hover:text-orange-500 transition-colors">#${idx+1}</div>
-                                                    <div class="min-w-0">
-                                                        <p class="text-slate-700 font-bold text-xs truncate">${tx.notes || 'Tanpa Catatan'}</p>
-                                                        <p class="text-[10px] text-slate-400">${formatDate(tx.date)}</p>
-                                                    </div>
+                                                    <div class="min-w-0"><p class="text-slate-700 font-bold text-xs truncate">${tx.notes || 'Tanpa Catatan'}</p><p class="text-[10px] text-slate-400">${formatDate(tx.date)}</p></div>
                                                 </div>
                                                 <span class="font-black text-rose-500 text-xs flex-shrink-0">${formatRupiah(tx.amount)}</span>
                                             </div>
@@ -1009,55 +851,46 @@
                                     </div>
                                 </div>
                             </div>
-
                         </div>
 
                         <!-- Right Column: History -->
                         <div class="lg:col-span-5">
-                            <!-- PERBAIKAN: Max-height disesuaikan (1570px) agar sejajar dengan batas bawah kolom kiri -->
                             <div class="card-friendly h-full flex flex-col overflow-hidden bg-white/80 backdrop-blur" style="max-height: 1570px;">
                                 <div class="p-5 border-b border-slate-50 bg-white/90 sticky top-0 z-10 flex justify-between items-center">
-                                    <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2">
-                                        <div class="p-1.5 rounded-lg bg-blue-50 text-blue-500"><i data-lucide="history" width="16"></i></div>
-                                        Riwayat Transaksi
-                                    </h3>
+                                    <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><div class="p-1.5 rounded-lg bg-blue-50 text-blue-500"><i data-lucide="history" width="16"></i></div> Riwayat Transaksi</h3>
                                 </div>
                                 <div class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3">
                                     ${filteredTx.length === 0 ? `<div class="p-12 text-center flex flex-col items-center justify-center opacity-40"><i data-lucide="ghost" width="48" class="mb-2"></i><p class="text-xs font-bold">Sepi banget nih...</p></div>` : ''}
                                     ${filteredTx.map(tx => {
                                         const isExpense = tx.type === 'expense';
                                         let name = 'Transaksi', icon = 'circle', color = 'bg-slate-300';
-                                        if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-400'; }
-                                        else if(tx.isDebtPayment) { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check'; color = isExpense ? 'bg-rose-400' : 'bg-emerald-400'; }
-                                        else { const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId); if(cat) { name = cat.name; icon = cat.icon; color = cat.color; } }
+                                        let isDebtRelated = false;
                                         
-                                        // Cari nama dompet
+                                        if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-400'; }
+                                        else if(tx.isDebtPayment || tx.categoryId === 'DEBT_PAYMENT') { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check'; color = isExpense ? 'bg-rose-400' : 'bg-emerald-400'; isDebtRelated = true; }
+                                        else { 
+                                            const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId); 
+                                            if(cat) { name = cat.name; icon = cat.icon; color = cat.color; } 
+                                            if (tx.relatedDebtId || tx.categoryId === 'DEBT_IN' || tx.categoryId === 'DEBT_OUT') { isDebtRelated = true; }
+                                        }
                                         const wallet = wallets.find(w => w.id === tx.walletId);
                                         const walletName = wallet ? wallet.name : 'Unknown';
 
                                         return `<div class="p-3 bg-white rounded-2xl border border-slate-50 shadow-sm hover:shadow-md transition-all flex items-center gap-3 relative overflow-hidden">
-                                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white ${color} shadow-sm">
-                                                <i data-lucide="${icon}" width="16"></i>
-                                            </div>
-                                            
+                                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white ${color} shadow-sm"><i data-lucide="${icon}" width="16"></i></div>
                                             <div class="flex-1 min-w-0">
                                                 <p class="font-bold text-slate-700 text-xs mb-0.5 truncate">${name}</p>
-                                                <div class="flex items-center gap-1.5 overflow-hidden">
-                                                    <span class="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded flex-shrink-0 max-w-[80px] truncate">
-                                                        ${walletName}
-                                                    </span>
-                                                    <p class="text-[10px] text-slate-400 truncate">${tx.notes || '-'}</p>
-                                                </div>
+                                                <div class="flex items-center gap-1.5 overflow-hidden"><span class="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded flex-shrink-0 max-w-[80px] truncate">${walletName}</span><p class="text-[10px] text-slate-400 truncate">${tx.notes || '-'}</p></div>
                                             </div>
-                                            
                                             <div class="text-right flex-shrink-0">
                                                 <span class="block font-black text-xs ${isExpense ? 'text-rose-500' : 'text-emerald-500'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span>
                                                 <span class="text-[9px] font-bold text-slate-300">${formatDate(tx.date)}</span>
                                             </div>
-
                                             <div class="flex flex-col gap-1 pl-2 border-l border-slate-100">
-                                                <button onclick="app.editTransaction('${tx.id}')" class="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded transition-colors"><i data-lucide="edit-2" width="12"></i></button>
-                                                <button onclick="app.deleteTransaction('${tx.id}')" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors"><i data-lucide="trash" width="12"></i></button>
+                                                ${!isDebtRelated ? `
+                                                    <button onclick="app.editTransaction('${tx.id}')" class="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded transition-colors" title="Edit"><i data-lucide="edit-2" width="12"></i></button>
+                                                    <button onclick="app.deleteTransaction('${tx.id}')" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors" title="Hapus"><i data-lucide="trash" width="12"></i></button>
+                                                ` : `<div class="h-full flex items-center justify-center px-1"><i data-lucide="lock" width="14" class="text-slate-300" title="Kelola di Menu Hutang"></i></div>`}
                                             </div>
                                         </div>`;
                                     }).join('')}
@@ -1071,15 +904,11 @@
         window.app.renderSettingsModalOriginalHTML = function() { 
             const {editingItem,settingsTab,settingsForm}=state; const isWallet=settingsTab==='wallets'; 
             const displayBudget=settingsForm.budget?formatNumberString(String(settingsForm.budget)):''; 
-            
-            // PERBAIKAN: Tampilkan tanda minus jika saldo awal negatif
             let displayBalance = '';
             if (settingsForm.initialBalance !== '') {
                 const isNeg = settingsForm.initialBalance < 0;
-                // Gunakan Math.abs agar formatNumberString bekerja dengan benar pada angka murni
                 displayBalance = (isNeg ? '-' : '') + formatNumberString(String(Math.abs(settingsForm.initialBalance)));
             }
-
             return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-pop-in relative border border-white"><div class="p-5 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white/95 backdrop-blur z-10"><h3 class="font-black text-lg text-slate-800">${editingItem?'Edit':'Tambah'} ${isWallet?'Dompet':'Kategori'}</h3><button onclick="app.closeAllModals()" class="p-1.5 bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-500 rounded-full transition-colors"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitSettings(event)" class="p-6 space-y-4 pb-6"><div><label class="label-text">Nama Item</label><input required type="text" value="${settingsForm.name}" oninput="app.updateForm('settingsForm','name',this.value)" class="input-field" placeholder="Contoh: Jajan"></div>${isWallet?`<div><label class="label-text">Tipe</label><div class="grid grid-cols-3 gap-2">${['Cash','Bank','E-Wallet'].map(t=>`<button type="button" onclick="app.updateForm('settingsForm','type','${t}')" class="btn-option ${settingsForm.type===t?'active':''}">${t}</button>`).join('')}</div></div><div><label class="label-text">Saldo Awal</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBalance}" oninput="app.handleNumberInput('settingsForm','initialBalance',this)" class="input-field pl-10 font-bold"></div></div>`:`<div><label class="label-text">Limit Budget (Opsional)</label><div class="relative"><span class="currency-prefix">Rp</span><input type="text" inputmode="numeric" value="${displayBudget}" oninput="app.handleNumberInput('settingsForm','budget',this)" class="input-field pl-10 font-bold" placeholder="0"></div></div>`}<div><label class="label-text">Warna</label><div class="flex flex-wrap gap-2">${colorOptions.map(c=>`<button type="button" data-value="${c}" onclick="app.setSettingsColor('${c}')" class="settings-color-btn w-8 h-8 rounded-full ${c} ${settingsForm.color===c?'ring-4 ring-offset-2 ring-slate-200 scale-110 shadow-md':'opacity-70'} transition-all hover:scale-110"></button>`).join('')}</div></div><div><label class="label-text">Ikon</label><div class="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto custom-scroll bg-slate-50 p-2 rounded-xl border border-slate-100">${iconOptions.map(i=>`<button type="button" data-value="${i}" onclick="app.setSettingsIcon('${i}')" class="settings-icon-btn p-2 rounded-lg flex justify-center transition-all ${settingsForm.icon===i?'bg-indigo-500 text-white shadow-lg scale-110':'bg-white text-slate-300 hover:bg-slate-100'}"><i data-lucide="${i}" width="16"></i></button>`).join('')}</div></div><button type="submit" class="w-full btn-primary mt-2">Simpan</button></form></div></div>`; 
         };
 
@@ -1096,14 +925,11 @@
         window.app.renderDebtModalOriginalHTML = function() {
             const {debtForm,data}=state; const isPayable=debtForm.type==='payable';
             return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-pop-in relative"><div class="p-5 border-b border-slate-50 flex justify-between"><h3 class="font-black text-lg text-slate-800">Hutang/Piutang</h3><button onclick="app.closeAllModals()" class="p-1.5 bg-slate-100 rounded-full"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitDebt(event)" class="p-6 space-y-4"><div class="flex gap-2 bg-slate-100 p-1 rounded-xl"><button type="button" onclick="app.setDebtType('payable')" class="flex-1 py-2 rounded-lg text-xs font-bold ${isPayable?'bg-white shadow text-rose-500':'text-slate-400'}">Saya Berhutang</button><button type="button" onclick="app.setDebtType('receivable')" class="flex-1 py-2 rounded-lg text-xs font-bold ${!isPayable?'bg-white shadow text-emerald-500':'text-slate-400'}">Saya Memberi Hutang</button></div><div><label class="label-text">Tanggal Transaksi</label><input type="date" value="${debtForm.date}" onchange="app.updateForm('debtForm','date',this.value)" class="input-field"></div><div><label class="label-text">Nama Orang</label><input type="text" value="${debtForm.person}" oninput="app.updateForm('debtForm','person',this.value)" class="input-field" placeholder="Nama..."></div><div><label class="label-text">Jumlah</label><input type="text" value="${debtForm.amount}" oninput="app.handleNumberInput('debtForm','amount',this)" class="input-field font-black text-lg" placeholder="Rp 0"></div>
-            
             <div id="debt-wallet-section" style="display: ${debtForm.isOldDebt ? 'none' : 'block'}">
                 <label class="label-text">Dompet Transaksi</label>
                 <div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" data-value="${w.id}" onclick="app.setDebtWallet('${w.id}')" class="debt-wallet-btn p-2.5 rounded-xl border text-left ${debtForm.walletId===w.id?'bg-indigo-50 border-indigo-400':'bg-white border-slate-100'}"><span class="font-bold text-xs">${w.name}</span></button>`).join('')}</div>
             </div>
-            
             <div><label class="label-text">Catatan</label><textarea rows="2" oninput="app.updateForm('debtForm','notes',this.value)" class="input-field resize-none text-xs" placeholder="Keterangan...">${debtForm.notes || ''}</textarea></div>
-            
             <div><label class="label-text">Jatuh Tempo</label><input type="date" value="${debtForm.dueDate}" onchange="app.updateForm('debtForm','dueDate',this.value)" class="input-field"></div><div class="flex items-center gap-2"><input type="checkbox" id="old-debt" onchange="app.toggleDebtOld(this.checked)" ${debtForm.isOldDebt?'checked':''}><label for="old-debt" class="text-xs font-bold text-slate-500">Ini hutang lama (jangan kurangi saldo dompet)</label></div><button type="submit" class="btn-primary w-full py-3">Simpan</button></form></div></div>`;
         };
         
@@ -1114,7 +940,6 @@
         };
         
         window.app.renderSettingsModalOriginal = function() {
-            // ... (kode settings modal tetap sama)
             const { data } = state; 
             const categories = [
                 { id: 'expense', title: 'Pengeluaran', items: data.expense, icon: 'arrow-down-circle', color: 'text-rose-500', bg: 'bg-rose-50' },
@@ -1159,167 +984,7 @@
         };
         
         window.app.renderDebtsGrouped = function() { 
-             const { debts } = state.data; const grouped = {}; 
-             let globalPayable = 0;
-             let globalReceivable = 0;
-
-             debts.forEach(debt => { 
-                 const rawName = debt.person.trim(); 
-                 const personKey = rawName.toLowerCase(); 
-                 if (!grouped[personKey]) { 
-                     grouped[personKey] = { name: rawName, items: [], totalPayable: 0, totalReceivable: 0, originalPayable: 0, originalReceivable: 0 }; 
-                 } 
-                 grouped[personKey].items.push(debt); 
-                 
-                 const remaining = debt.amount - (debt.paidAmount || 0); 
-                 
-                 if (debt.type === 'payable') {
-                     grouped[personKey].originalPayable += debt.amount;
-                     if (remaining > 0) {
-                         grouped[personKey].totalPayable += remaining; 
-                         globalPayable += remaining;
-                     }
-                 } else {
-                     grouped[personKey].originalReceivable += debt.amount;
-                     if (remaining > 0) {
-                         grouped[personKey].totalReceivable += remaining; 
-                         globalReceivable += remaining;
-                     }
-                 }
-             });
-
-            const allGroups = Object.values(grouped);
-            // Pisahkan yang masih punya tanggungan (Aktif) vs yang sudah bersih (Lunas)
-            const activeGroups = allGroups.filter(g => g.totalPayable > 0 || g.totalReceivable > 0).sort((a, b) => a.name.localeCompare(b.name));
-            const historyGroups = allGroups.filter(g => g.totalPayable === 0 && g.totalReceivable === 0).sort((a, b) => a.name.localeCompare(b.name));
-
-            // Helper render Card (Reuse code untuk kedua list)
-            const renderGroupCard = (group, isHistorySection = false) => {
-                const safeName = group.name.replace(/'/g, "\\'"); 
-                const safeId = group.name.replace(/[^a-zA-Z0-9]/g, '_') + (isHistorySection ? '_hist' : ''); 
-                const isExpanded = state.expandedPerson === (isHistorySection ? group.name + '_hist' : group.name);
-                
-                const activeItems = group.items.filter(i => (i.amount - (i.paidAmount||0)) > 0).sort((a,b) => new Date(b.date) - new Date(a.date));
-                const paidItems = group.items.filter(i => (i.amount - (i.paidAmount||0)) <= 0).sort((a,b) => new Date(b.date) - new Date(a.date));
-
-                let statusColor = 'bg-slate-100 text-slate-500';
-                let statusText = 'Lunas';
-                let mainAmount = 0;
-                let progress = 0;
-                let showPayButton = false;
-                let payType = '';
-                
-                if (group.totalPayable > 0 && group.totalReceivable > 0) {
-                        statusColor = 'bg-orange-100 text-orange-600'; statusText = 'Campur';
-                        if (group.totalPayable >= group.totalReceivable) {
-                            showPayButton = true; payType = 'payable'; mainAmount = group.totalPayable;
-                            progress = group.originalPayable > 0 ? ((group.originalPayable - group.totalPayable) / group.originalPayable) * 100 : 100;
-                        } else {
-                            showPayButton = true; payType = 'receivable'; mainAmount = group.totalReceivable;
-                            progress = group.originalReceivable > 0 ? ((group.originalReceivable - group.totalReceivable) / group.originalReceivable) * 100 : 100;
-                        }
-                } else if (group.totalPayable > 0) {
-                        statusColor = 'bg-rose-100 text-rose-600'; statusText = 'Hutang'; mainAmount = group.totalPayable;
-                        showPayButton = true; payType = 'payable';
-                        progress = group.originalPayable > 0 ? ((group.originalPayable - group.totalPayable) / group.originalPayable) * 100 : 100;
-                } else if (group.totalReceivable > 0) {
-                        statusColor = 'bg-emerald-100 text-emerald-600'; statusText = 'Piutang'; mainAmount = group.totalReceivable;
-                        showPayButton = true; payType = 'receivable';
-                        progress = group.originalReceivable > 0 ? ((group.originalReceivable - group.totalReceivable) / group.originalReceivable) * 100 : 100;
-                } else {
-                    progress = 100; 
-                }
-
-                const renderItem = (item, isHistoryItem = false) => {
-                    const remaining = item.amount - (item.paidAmount||0); 
-                    const isPaid = remaining <= 0; 
-                    const isPayable = item.type === 'payable';
-                    return `
-                    <div class="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm relative flex flex-col gap-2 ${isHistoryItem ? 'opacity-75 grayscale-[0.3]' : ''}">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <span class="text-[9px] font-black px-1.5 py-0.5 rounded ${isPayable?'bg-rose-50 text-rose-500':'bg-emerald-50 text-emerald-500'} mb-1 inline-block tracking-wide border ${isPayable?'border-rose-100':'border-emerald-100'}">${isPayable?'HUTANG':'PIUTANG'}</span>
-                                <p class="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1"><i data-lucide="calendar" width="10"></i> ${formatDate(item.date)}</p>
-                            </div>
-                            ${isPaid ? `<div class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[9px] font-bold border border-emerald-100 flex items-center gap-1"><i data-lucide="check-circle" width="10"></i> Lunas</div>` : ''}
-                        </div>
-                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100"><p class="text-xs font-bold text-slate-600 line-clamp-2 italic">"${item.notes||'...'}"</p></div>
-                        <div class="mt-1 flex justify-between items-end">
-                            <div><p class="text-[9px] text-slate-400 font-bold">Total Awal</p><p class="font-bold text-slate-600 text-xs">${formatRupiah(item.amount)}</p></div>
-                            <div class="text-right"><p class="text-[9px] text-slate-400 font-bold">Sisa Tagihan</p><p class="font-black ${isPayable ? 'text-rose-500' : 'text-emerald-500'} text-sm">${formatRupiah(remaining)}</p></div>
-                        </div>
-                        <button onclick="app.deleteDebt('${item.id}')" class="absolute -right-2 -top-2 w-6 h-6 bg-white text-slate-300 hover:text-rose-500 border border-slate-100 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-20" title="Hapus"><i data-lucide="trash-2" width="12"></i></button>
-                    </div>`;
-                };
-
-                return `
-                <div class="card-friendly border-0 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group flex flex-col ${isHistorySection ? 'opacity-80' : ''}">
-                    <div class="p-5 bg-white relative z-10">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center gap-3">
-                                    <div class="w-12 h-12 rounded-2xl ${statusColor} bg-opacity-20 flex items-center justify-center font-black text-lg shadow-sm border border-white/50">${group.name.charAt(0).toUpperCase()}</div>
-                                    <div class="min-w-0"><h4 class="font-bold text-base text-slate-800 truncate pr-2">${group.name}</h4><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><i data-lucide="file-text" width="10"></i> ${activeItems.length} Aktif / ${group.items.length} Total</p></div>
-                            </div>
-                            <div class="text-right flex-shrink-0">
-                                <span class="block font-black text-sm text-slate-700">${mainAmount > 0 ? formatRupiah(mainAmount) : (group.totalPayable > 0 || group.totalReceivable > 0 ? '...' : 'Lunas')}</span>
-                                <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold ${statusColor} mt-0.5">${statusText}</span>
-                            </div>
-                        </div>
-                        <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden flex"><div class="h-full rounded-full transition-all duration-1000 ${payType === 'payable' ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${progress}%"></div></div>
-                        <div class="flex justify-between mt-1"><span class="text-[9px] font-bold text-slate-400">Terbayar</span><span class="text-[9px] font-bold ${payType === 'payable' ? 'text-rose-500' : 'text-emerald-500'}">${Math.round(progress)}%</span></div>
-                        <div class="flex gap-2 mt-4">
-                            ${showPayButton ? `<button onclick="app.openPayDebtModal('${safeName}', '${payType}', ${mainAmount})" class="flex-1 py-2 rounded-xl text-xs font-bold text-white shadow-md transition-all active:scale-95 ${payType === 'payable' ? 'bg-slate-800 hover:bg-slate-900' : 'bg-emerald-600 hover:bg-emerald-700'}">${payType === 'payable' ? 'Bayar Hutang' : 'Terima Piutang'}</button>` : ''}
-                            <button onclick="app.toggleExpandPerson('${isHistorySection ? group.name + '_hist' : group.name}')" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors w-full"><i data-lucide="chevron-down" width="16" class="mx-auto transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"></i></button>
-                        </div>
-                    </div>
-                    <div id="details-${safeId}" class="bg-slate-50 border-t border-slate-100 transition-all duration-300 grid ${isExpanded ? 'grid-rows-1' : 'grid-rows-0'}">
-                        <div class="overflow-hidden px-4">
-                            <div class="py-4 space-y-3">
-                                ${activeItems.length > 0 ? activeItems.map(item => renderItem(item, false)).join('') : (!isHistorySection ? `<p class="text-[10px] text-slate-400 text-center italic py-2">Tidak ada tagihan aktif</p>` : '')}
-                                ${paidItems.length > 0 ? `<div class="relative py-2 flex items-center justify-center"><div class="h-px bg-slate-200 w-full absolute"></div><span class="relative bg-slate-50 px-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Riwayat Lunas (${paidItems.length})</span></div><div class="space-y-3">${paidItems.map(item => renderItem(item, true)).join('')}</div>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            };
-            
-            return `
-            <div class="space-y-6 animate-pop-in">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-gradient-to-br from-rose-500 to-rose-600 rounded-[1.75rem] p-6 text-white shadow-lg shadow-rose-200 relative overflow-hidden group">
-                         <div class="relative z-10"><p class="text-rose-100 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2"><i data-lucide="arrow-up-right" width="14"></i> Total Hutang Saya</p><h3 class="text-3xl font-black tracking-tight">${formatRupiah(globalPayable)}</h3><p class="text-[10px] text-rose-200 mt-2 font-medium opacity-80">Yang harus saya lunasi</p></div>
-                         <div class="absolute -right-6 -bottom-6 text-rose-400 opacity-20 transform rotate-12 group-hover:scale-110 transition-transform"><i data-lucide="trending-down" width="100" height="100"></i></div>
-                    </div>
-                    <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[1.75rem] p-6 text-white shadow-lg shadow-emerald-200 relative overflow-hidden group">
-                         <div class="relative z-10"><p class="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-1.5 flex items-center gap-2"><i data-lucide="arrow-down-left" width="14"></i> Total Piutang Saya</p><h3 class="text-3xl font-black tracking-tight">${formatRupiah(globalReceivable)}</h3><p class="text-[10px] text-emerald-200 mt-2 font-medium opacity-80">Uang saya di orang lain</p></div>
-                         <div class="absolute -right-6 -bottom-6 text-emerald-400 opacity-20 transform rotate-12 group-hover:scale-110 transition-transform"><i data-lucide="trending-up" width="100" height="100"></i></div>
-                    </div>
-                </div>
-
-                <div class="flex justify-between items-center px-1">
-                    <h3 class="font-black text-slate-700 text-lg flex items-center gap-2"><i data-lucide="users" width="20" class="text-indigo-500"></i> Daftar Aktif</h3>
-                    <button onclick="app.openDebtModal()" class="px-5 py-2 bg-slate-800 text-white rounded-xl font-bold text-xs shadow-lg hover:bg-slate-900 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2"><i data-lucide="plus" width="16"></i> Catat Baru</button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    ${activeGroups.length === 0 ? `<div class="col-span-full py-12 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-[2rem]"><p class="font-bold">Tidak ada hutang aktif.</p></div>` : ''}
-                    ${activeGroups.map(group => renderGroupCard(group, false)).join('')}
-                </div>
-
-                ${historyGroups.length > 0 ? `
-                    <div class="relative py-4 flex items-center justify-center">
-                        <div class="h-px bg-slate-200 w-full absolute"></div>
-                        <span class="relative bg-slate-50 px-4 text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><i data-lucide="history" width="14"></i> Riwayat Lunas</span>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 opacity-80 hover:opacity-100 transition-opacity">
-                        ${historyGroups.map(group => renderGroupCard(group, true)).join('')}
-                    </div>
-                ` : ''}
-            </div>`;
-        };
-        
-        window.app.renderDebtsGrouped = function() { 
-             const { debts } = state.data; const grouped = {}; 
+             const { debts, transactions } = state.data; const grouped = {}; 
              let globalPayable = 0;
              let globalReceivable = 0;
 
@@ -1392,11 +1057,17 @@
                         const safeId = group.name.replace(/[^a-zA-Z0-9]/g, '_'); 
                         const isExpanded = state.expandedPerson === group.name;
                         
-                        // Pisahkan yang Aktif dan Lunas
                         const activeItems = group.items.filter(i => (i.amount - (i.paidAmount||0)) > 0).sort((a,b) => new Date(b.date) - new Date(a.date));
                         const paidItems = group.items.filter(i => (i.amount - (i.paidAmount||0)) <= 0).sort((a,b) => new Date(b.date) - new Date(a.date));
 
-                        // Logika Tampilan Warna & Status
+                        const personDebtIds = group.items.map(d => d.id);
+                        const personPayments = transactions.filter(tx => {
+                            if (!tx.isDebtPayment && tx.categoryId !== 'DEBT_PAYMENT') return false;
+                            if (tx.paymentDistribution) return tx.paymentDistribution.some(dist => personDebtIds.includes(dist.debtId));
+                            if (tx.relatedDebtId) return personDebtIds.includes(tx.relatedDebtId);
+                            return tx.notes.toLowerCase().includes(group.name.toLowerCase());
+                        }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
                         let statusColor = 'bg-slate-100 text-slate-500';
                         let statusText = 'Lunas';
                         let mainAmount = 0;
@@ -1425,7 +1096,6 @@
                             progress = 100; 
                         }
 
-                        // Helper untuk render Item (Dipakai untuk list aktif & lunas)
                         const renderItem = (item, isHistory = false) => {
                             const remaining = item.amount - (item.paidAmount||0); 
                             const isPaid = remaining <= 0; 
@@ -1440,11 +1110,9 @@
                                     </div>
                                     ${isPaid ? `<div class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[9px] font-bold border border-emerald-100 flex items-center gap-1"><i data-lucide="check-circle" width="10"></i> Lunas</div>` : ''}
                                 </div>
-                                
                                 <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
                                     <p class="text-xs font-bold text-slate-600 line-clamp-2 italic">"${item.notes||'...'}"</p>
                                 </div>
-                                
                                 <div class="mt-1 flex justify-between items-end">
                                     <div>
                                         <p class="text-[9px] text-slate-400 font-bold">Total Awal</p>
@@ -1469,7 +1137,10 @@
                                          </div>
                                          <div class="min-w-0">
                                             <h4 class="font-bold text-base text-slate-800 truncate pr-2">${group.name}</h4>
-                                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><i data-lucide="file-text" width="10"></i> ${activeItems.length} Aktif / ${group.items.length} Total</p>
+                                            <div class="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                                <span class="flex items-center gap-1"><i data-lucide="file-text" width="10"></i> ${activeItems.length} Aktif</span>
+                                                ${personPayments.length > 0 ? `<span class="flex items-center gap-1 text-indigo-400"><i data-lucide="history" width="10"></i> ${personPayments.length} Byr</span>` : ''}
+                                            </div>
                                          </div>
                                     </div>
                                     <div class="text-right flex-shrink-0">
@@ -1478,7 +1149,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Progress Bar -->
                                 <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden flex">
                                     <div class="h-full rounded-full transition-all duration-1000 ${payType === 'payable' ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${progress}%"></div>
                                 </div>
@@ -1487,15 +1157,19 @@
                                     <span class="text-[9px] font-bold ${payType === 'payable' ? 'text-rose-500' : 'text-emerald-500'}">${Math.round(progress)}%</span>
                                 </div>
 
-                                <!-- Main Actions -->
                                 <div class="flex gap-2 mt-4">
                                     ${showPayButton ? `
                                         <button onclick="app.openPayDebtModal('${safeName}', '${payType}', ${mainAmount})" class="flex-1 py-2 rounded-xl text-xs font-bold text-white shadow-md transition-all active:scale-95 ${payType === 'payable' ? 'bg-slate-800 hover:bg-slate-900' : 'bg-emerald-600 hover:bg-emerald-700'}">
                                             ${payType === 'payable' ? 'Bayar Hutang' : 'Terima Piutang'}
                                         </button>
                                     ` : ''}
-                                    <button onclick="app.toggleExpandPerson('${safeName}')" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
-                                        <i data-lucide="chevron-down" width="16" class="transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"></i>
+                                    
+                                    <button onclick="app.openAddDebtForPerson('${safeName}')" class="px-3 py-2 rounded-xl bg-indigo-50 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100 transition-colors" title="Tambah Catatan">
+                                        <i data-lucide="plus" width="16"></i>
+                                    </button>
+
+                                    <button onclick="app.toggleExpandPerson('${safeName}')" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors flex items-center justify-center gap-1 min-w-[44px]" title="Lihat Detail & Riwayat">
+                                        ${personPayments.length > 0 && !isExpanded ? `<i data-lucide="history" width="14" class="text-indigo-400"></i>` : `<i data-lucide="chevron-down" width="16" class="transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"></i>`}
                                     </button>
                                 </div>
                             </div>
@@ -1503,10 +1177,8 @@
                             <div id="details-${safeId}" class="bg-slate-50 border-t border-slate-100 transition-all duration-300 grid ${isExpanded ? 'grid-rows-1' : 'grid-rows-0'}">
                                 <div class="overflow-hidden px-4">
                                     <div class="py-4 space-y-3">
-                                        <!-- Render Active Items First -->
                                         ${activeItems.length > 0 ? activeItems.map(item => renderItem(item, false)).join('') : `<p class="text-[10px] text-slate-400 text-center italic py-2">Tidak ada tagihan aktif</p>`}
                                         
-                                        <!-- Render Paid Items Last with Divider -->
                                         ${paidItems.length > 0 ? `
                                             <div class="relative py-2 flex items-center justify-center">
                                                 <div class="h-px bg-slate-200 w-full absolute"></div>
@@ -1514,6 +1186,34 @@
                                             </div>
                                             <div class="space-y-3">
                                                 ${paidItems.map(item => renderItem(item, true)).join('')}
+                                            </div>
+                                        ` : ''}
+
+                                        <!-- RIWAYAT PEMBAYARAN -->
+                                        ${personPayments.length > 0 ? `
+                                            <div class="relative py-2 flex items-center justify-center mt-2">
+                                                <div class="h-px bg-slate-200 w-full absolute"></div>
+                                                <span class="relative bg-indigo-50 px-2 rounded text-[9px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1"><i data-lucide="history" width="10"></i> Riwayat Pembayaran</span>
+                                            </div>
+                                            <div class="space-y-2">
+                                                ${personPayments.map(tx => `
+                                                    <div class="bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100 flex items-center justify-between group/pay">
+                                                        <div class="flex items-center gap-2 min-w-0">
+                                                            <div class="w-7 h-7 rounded-full bg-white text-indigo-500 flex items-center justify-center shadow-sm flex-shrink-0"><i data-lucide="banknote" width="12"></i></div>
+                                                            <div class="min-w-0">
+                                                                <p class="text-[10px] font-bold text-indigo-900 truncate">Pembayaran</p>
+                                                                <p class="text-[9px] text-indigo-400">${formatDate(tx.date)}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="font-bold text-xs text-indigo-600">${formatRupiah(tx.amount)}</span>
+                                                            <div class="flex gap-1 opacity-0 group-hover/pay:opacity-100 transition-opacity">
+                                                                <button onclick="app.confirmEditTx('${tx.id}')" class="p-1 bg-white text-indigo-500 rounded border border-indigo-100 hover:bg-indigo-500 hover:text-white transition-colors" title="Edit Pembayaran"><i data-lucide="edit-2" width="10"></i></button>
+                                                                <button onclick="app.deleteTransaction('${tx.id}')" class="p-1 bg-white text-rose-500 rounded border border-rose-100 hover:bg-rose-500 hover:text-white transition-colors" title="Hapus Pembayaran"><i data-lucide="trash" width="10"></i></button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                `).join('')}
                                             </div>
                                         ` : ''}
                                     </div>
@@ -1525,6 +1225,7 @@
             </div>`;
         };
 
+        // --- ATTACH RENDER MODAL HELPER ---
         window.app.renderAllModals = function() {
             if (state.isSubmitting) return renderModalLoading();
             if (state.isSettingsModalOpen) return window.app.renderSettingsModalOriginalHTML();
@@ -1535,6 +1236,7 @@
             return '';
         };
 
+        // --- FINAL INIT ---
         render();
     </script>
 </body>
