@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyKeuangan V1</title>
+    <title>MyKeuangan V2</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1071,6 +1071,7 @@
                         let statusColor = 'bg-slate-100 text-slate-500';
                         let statusText = 'Lunas';
                         let mainAmount = 0;
+                        let originalAmount = 0; // Variabel baru untuk Total Awal
                         let progress = 0;
                         let showPayButton = false;
                         let payType = '';
@@ -1079,21 +1080,33 @@
                              statusColor = 'bg-orange-100 text-orange-600'; statusText = 'Campur';
                              if (group.totalPayable >= group.totalReceivable) {
                                  showPayButton = true; payType = 'payable'; mainAmount = group.totalPayable;
+                                 originalAmount = group.originalPayable;
                                  progress = group.originalPayable > 0 ? ((group.originalPayable - group.totalPayable) / group.originalPayable) * 100 : 100;
                              } else {
                                  showPayButton = true; payType = 'receivable'; mainAmount = group.totalReceivable;
+                                 originalAmount = group.originalReceivable;
                                  progress = group.originalReceivable > 0 ? ((group.originalReceivable - group.totalReceivable) / group.originalReceivable) * 100 : 100;
                              }
                         } else if (group.totalPayable > 0) {
                              statusColor = 'bg-rose-100 text-rose-600'; statusText = 'Hutang'; mainAmount = group.totalPayable;
+                             originalAmount = group.originalPayable;
                              showPayButton = true; payType = 'payable';
                              progress = group.originalPayable > 0 ? ((group.originalPayable - group.totalPayable) / group.originalPayable) * 100 : 100;
                         } else if (group.totalReceivable > 0) {
                              statusColor = 'bg-emerald-100 text-emerald-600'; statusText = 'Piutang'; mainAmount = group.totalReceivable;
+                             originalAmount = group.originalReceivable;
                              showPayButton = true; payType = 'receivable';
                              progress = group.originalReceivable > 0 ? ((group.originalReceivable - group.totalReceivable) / group.originalReceivable) * 100 : 100;
                         } else {
                             progress = 100; 
+                            // Untuk yang sudah lunas, tampilkan history original amount
+                            if (group.originalPayable >= group.originalReceivable) {
+                                originalAmount = group.originalPayable;
+                                payType = 'payable';
+                            } else {
+                                originalAmount = group.originalReceivable;
+                                payType = 'receivable';
+                            }
                         }
 
                         const renderItem = (item, isHistory = false) => {
@@ -1144,17 +1157,25 @@
                                          </div>
                                     </div>
                                     <div class="text-right flex-shrink-0">
-                                        <span class="block font-black text-sm text-slate-700">${mainAmount > 0 ? formatRupiah(mainAmount) : (group.totalPayable > 0 || group.totalReceivable > 0 ? '...' : 'Lunas')}</span>
-                                        <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold ${statusColor} mt-0.5">${statusText}</span>
+                                        <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold ${statusColor} mb-1">${statusText}</span>
+                                        <span class="block font-black text-xl text-slate-700">${formatRupiah(mainAmount)}</span>
                                     </div>
                                 </div>
 
                                 <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden flex">
                                     <div class="h-full rounded-full transition-all duration-1000 ${payType === 'payable' ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${progress}%"></div>
                                 </div>
-                                <div class="flex justify-between mt-1">
-                                    <span class="text-[9px] font-bold text-slate-400">Terbayar</span>
-                                    <span class="text-[9px] font-bold ${payType === 'payable' ? 'text-rose-500' : 'text-emerald-500'}">${Math.round(progress)}%</span>
+                                
+                                <!-- TAMPILAN BARU: Total Awal & Sisa -->
+                                <div class="flex justify-between mt-2 items-center">
+                                    <div class="flex flex-col">
+                                        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Total Awal</span>
+                                        <span class="text-[10px] font-bold text-slate-600">${formatRupiah(originalAmount)}</span>
+                                    </div>
+                                    <div class="flex flex-col text-right">
+                                        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Sisa Tagihan</span>
+                                        <span class="text-[10px] font-black ${payType === 'payable' ? 'text-rose-500' : 'text-emerald-500'}">${formatRupiah(mainAmount)}</span>
+                                    </div>
                                 </div>
 
                                 <div class="flex gap-2 mt-4">
