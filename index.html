@@ -295,7 +295,23 @@
             setTxFilter: (field, value) => { state.filter[field] = value; state.shouldRefreshContent = true; render(); },
             setDashboardFilter: (field, value, skipRender = false) => { state.dashboardFilter[field] = value; if (!skipRender) { state.shouldRefreshContent = true; render(); } },
             applyDateFilter: () => { state.shouldRefreshContent = true; render(); },
-            resetDashboardFilter: () => { state.dashboardFilter = { type: 'all', walletId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' }; state.shouldRefreshContent = true; render(); },
+            
+            // UPDATE: Reset filter agar kategori juga ikut kereset
+            resetDashboardFilter: () => { 
+                state.dashboardFilter = { type: 'all', walletId: 'all', categoryId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' }; 
+                state.shouldRefreshContent = true; 
+                render(); 
+            },
+
+            // SISIPKAN: Fungsi baru untuk mengatur filter kategori saat diklik
+            setDashboardCategoryFilter: (id) => {
+                const current = state.dashboardFilter.categoryId;
+                // Logika Toggle: Jika diklik kategori yang sama, filter dimatikan (jadi 'all')
+                state.dashboardFilter.categoryId = (current === id) ? 'all' : id; 
+                state.shouldRefreshContent = true;
+                render();
+            },
+
             toggleWalletExclusion: async (id, currentIsExcluded) => { try { await updateDoc(doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, 'wallets', id), { isExcluded: !currentIsExcluded }); } catch (err) { console.error(err); } },
             openSettingsModal: (mode, id = null, tabName = null) => { if (tabName) state.settingsTab = tabName; if (mode === 'edit' && id) { const item = state.data[state.settingsTab].find(i => i.id === id); state.editingItem = item; state.settingsForm = { name: item.name, budget: item.budget || '', initialBalance: item.initialBalance || '', type: item.type || 'Cash', icon: item.icon, color: item.color }; } else { state.editingItem = null; state.settingsForm = { name: '', budget: '', initialBalance: '', type: 'Cash', icon: 'star', color: 'bg-indigo-400' }; } state.isSettingsModalOpen = true; state.shouldRefreshContent = false; render(); },
             
@@ -789,21 +805,34 @@
             const { transactions, wallets, expense, income } = state.data;
             const filter = state.dashboardFilter;
             
+            // 1. LOGIKA FILTERING (DITAMBAHKAN FILTER KATEGORI)
             const filteredTx = transactions.filter(tx => {
+                // Filter Tanggal
                 if (filter.startDate && tx.date < filter.startDate) return false;
                 if (filter.endDate && tx.date > filter.endDate) return false;
+                
+                // BARU: Filter Kategori Spesifik
+                if (filter.categoryId && filter.categoryId !== 'all') {
+                    if (tx.categoryId !== filter.categoryId) return false;
+                }
+
+                // Filter Tipe
                 if (filter.type !== 'all') {
                     if (filter.type === 'debt') return tx.isDebtPayment;
                     if (filter.type === 'transfer') return tx.type === 'transfer';
                     if (filter.type === 'expense') return tx.type === 'expense' && !tx.isDebtPayment;
                     if (filter.type === 'income') return tx.type === 'income' && !tx.isDebtPayment;
                 }
+                
+                // Filter Wallet
                 if (filter.walletId !== 'all') {
                     if (tx.type === 'transfer') return tx.fromWalletId === filter.walletId || tx.toWalletId === filter.walletId;
                     return tx.walletId === filter.walletId;
                 }
                 return true;
             });
+
+            // --- PERHITUNGAN DATA (Sama seperti sebelumnya) ---
             let totalIncome = 0, totalExpense = 0; const expenseByCategory = {}; 
             filteredTx.forEach(tx => {
                 if (tx.type === 'income' && !tx.isDebtPayment) totalIncome += tx.amount;
@@ -878,6 +907,17 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- BARU: Info Filter Kategori Aktif -->
+                    ${filter.categoryId && filter.categoryId !== 'all' ? `
+                        <div class="flex items-center justify-between bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-3 rounded-xl animate-pop-in">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="filter" width="16"></i>
+                                <span class="text-xs font-bold">Memfilter Kategori: ${expense.find(c => c.id === filter.categoryId)?.name || 'Terpilih'}</span>
+                            </div>
+                            <button onclick="app.setDashboardCategoryFilter('${filter.categoryId}')" class="text-xs font-bold hover:underline">Hapus Filter</button>
+                        </div>
+                    ` : ''}
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                         <!-- Saldo Bersih Card -->
@@ -947,17 +987,22 @@
                                 </div>
                             </div>
 
-                            <!-- Budget List -->
+                            <!-- UPDATE: Kategori List (Clickable Filter) -->
                             <div class="card-friendly p-5">
                                 <h4 class="font-bold text-slate-700 mb-4 text-sm flex items-center gap-2"><div class="p-1.5 rounded-lg bg-indigo-100 text-indigo-500"><i data-lucide="pie-chart" width="14"></i></div> Kategori</h4>
-                                <div class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scroll">
+                                <div class="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scroll">
                                     ${budgetData.map(cat => { 
                                         const percent = Math.min(100, cat.percent); 
                                         const isOver = cat.percent > 100;
                                         const badgeClass = isOver ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200';
-                                        return `<div class="group">
+                                        
+                                        // Visual State: Selected
+                                        const isSelected = filter.categoryId === cat.id;
+                                        const selectionClass = isSelected ? 'ring-2 ring-indigo-500 bg-indigo-50 border-indigo-200' : 'hover:bg-slate-50 border-transparent';
+                                        
+                                        return `<div onclick="app.setDashboardCategoryFilter('${cat.id}')" class="group cursor-pointer rounded-xl border p-2 transition-all ${selectionClass}">
                                             <div class="flex justify-between items-end text-xs mb-1.5">
-                                                <div><span class="block font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">${cat.name}</span><span class="text-[10px] text-slate-400 font-medium">${formatRupiah(cat.spent)} <span class="text-slate-300">/ ${cat.budget > 0 ? formatRupiah(cat.budget) : '∞'}</span></span></div>
+                                                <div><span class="block font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">${cat.name} ${isSelected ? '<i data-lucide="check-circle" width="12" class="inline text-indigo-500 ml-1"></i>' : ''}</span><span class="text-[10px] text-slate-400 font-medium">${formatRupiah(cat.spent)} <span class="text-slate-300">/ ${cat.budget > 0 ? formatRupiah(cat.budget) : '∞'}</span></span></div>
                                                 <span class="font-bold px-2 py-0.5 rounded-md border ${badgeClass}">${Math.round(cat.percent)}%</span>
                                             </div>
                                             <div class="h-2.5 bg-slate-50 rounded-full overflow-hidden">
