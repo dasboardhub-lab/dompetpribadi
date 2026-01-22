@@ -207,12 +207,13 @@
             loginCodeInput: '', expandedPerson: null,
             filter: { type: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth() },
             dashboardFilter: { type: 'all', walletId: 'all', startDate: getFirstDayOfMonth(), endDate: getLastDayOfMonth(), periodMode: 'monthly' },
+            debtSortMode: 'default', // default, highest, oldest, due_soon
             // Forms
             settingsForm: { name: '', budget: '', initialBalance: '', type: 'Cash', icon: 'star', color: 'bg-indigo-400' },
             txForm: { type: 'expense', date: getToday(), amount: '', walletId: '', categoryId: '', notes: '' },
             transferForm: { date: getToday(), amount: '', fromWalletId: '', toWalletId: '', notes: '' },
             debtForm: { type: 'payable', person: '', amount: '', date: getToday(), dueDate: '', notes: '', isOldDebt: false, walletId: '' },
-            payDebtForm: { date: getToday(), amount: '', walletId: '', notes: '' },
+            payDebtForm: { date: getToday(), amount: '', walletId: '', notes: '', isWriteOff: false }, // Added isWriteOff
             // Data
             data: { expense: [], income: [], wallets: [], transactions: [], debts: [] },
             unsubscribeListeners: []
@@ -298,6 +299,97 @@
             toggleWalletExclusion: async (id, currentIsExcluded) => { try { await updateDoc(doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, 'wallets', id), { isExcluded: !currentIsExcluded }); } catch (err) { console.error(err); } },
             openSettingsModal: (mode, id = null, tabName = null) => { if (tabName) state.settingsTab = tabName; if (mode === 'edit' && id) { const item = state.data[state.settingsTab].find(i => i.id === id); state.editingItem = item; state.settingsForm = { name: item.name, budget: item.budget || '', initialBalance: item.initialBalance || '', type: item.type || 'Cash', icon: item.icon, color: item.color }; } else { state.editingItem = null; state.settingsForm = { name: '', budget: '', initialBalance: '', type: 'Cash', icon: 'star', color: 'bg-indigo-400' }; } state.isSettingsModalOpen = true; state.shouldRefreshContent = false; render(); },
             
+            // --- NEW: Debt Features Methods ---
+            setDebtSort: (mode) => { state.debtSortMode = mode; state.shouldRefreshContent = true; render(); },
+            
+            openWhatsApp: (name, amount, type) => {
+                const message = `Halo ${name}, sekadar mengingatkan ${type === 'payable' ? 'saya ada hutang sebesar' : 'kamu ada total hutang sebesar'} ${formatRupiah(amount)}. Mohon dicek ya, terima kasih!`;
+                const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                window.open(url, '_blank');
+            },
+            
+            copyDebtStatement: (personName) => {
+                const { debts, transactions } = state.data;
+                const safeName = personName.trim().toLowerCase();
+                
+                // 1. Ambil Hutang (Creation)
+                const personDebts = debts.filter(d => d.person.toLowerCase().trim() === safeName);
+                if (personDebts.length === 0) return;
+
+                // 2. Ambil Pembayaran (Payments) - Logika sama dengan renderDebtsGrouped
+                const personDebtIds = personDebts.map(d => d.id);
+                const personPayments = transactions.filter(tx => {
+                    if (!tx.isDebtPayment && tx.categoryId !== 'DEBT_PAYMENT') return false;
+                    if (tx.paymentDistribution) return tx.paymentDistribution.some(dist => personDebtIds.includes(dist.debtId));
+                    if (tx.relatedDebtId) return personDebtIds.includes(tx.relatedDebtId);
+                    return tx.notes.toLowerCase().includes(safeName);
+                });
+
+                // 3. Gabung & Sortir Timeline
+                const timeline = [];
+                
+                // Masukkan Hutang
+                personDebts.forEach(d => {
+                    timeline.push({ 
+                        date: d.date, 
+                        type: d.type === 'payable' ? 'Hutang Baru' : 'Piutang Baru', 
+                        amount: d.amount, 
+                        notes: d.notes || '-',
+                        isPayment: false
+                    });
+                });
+                
+                // Masukkan Pembayaran
+                personPayments.forEach(tx => {
+                    timeline.push({ 
+                        date: tx.date, 
+                        type: 'Pembayaran', 
+                        amount: tx.amount, 
+                        notes: tx.notes || '-',
+                        isPayment: true
+                    });
+                });
+                
+                // Urutkan dari Terlama ke Terbaru
+                timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                // 4. Generate Text Format WhatsApp
+                let text = `*Riwayat Transaksi - ${personName}*\n\n`;
+                
+                timeline.forEach((item, index) => {
+                    const dateStr = formatDate(item.date); // Menggunakan helper formatDate yang sudah ada
+                    const sign = item.isPayment ? '✅' : '🔴'; // Icon visual
+                    
+                    text += `${index + 1}. ${dateStr}\n`;
+                    text += `   ${sign} ${item.type} (${item.notes})\n`;
+                    text += `   Nominal: ${formatRupiah(item.amount)}\n\n`;
+                });
+
+                // Hitung Total Sisa
+                const totalSisa = personDebts.reduce((acc, curr) => acc + (curr.amount - (curr.paidAmount || 0)), 0);
+                text += `--------------------------\n*Total Sisa Tagihan: ${formatRupiah(totalSisa)}*`;
+
+                // 5. Eksekusi Copy
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    if(successful) showNotification('Disalin', 'Riwayat lengkap berhasil disalin');
+                    else showNotification('Gagal', 'Browser menolak akses clipboard', 'error');
+                } catch (err) {
+                    console.error('Copy error', err);
+                    showNotification('Gagal', 'Terjadi kesalahan saat menyalin', 'error');
+                }
+                
+                document.body.removeChild(textArea);
+            },
+
             openTransactionModal: () => { state.editingTxId = null; state.txForm = { type: 'expense', date: getToday(), amount: '', walletId: state.data.wallets[0]?.id || '', categoryId: '', notes: '' }; state.isTransactionModalOpen = true; state.shouldRefreshContent = false; render(); },
             
             editTransaction: (id) => {
@@ -330,7 +422,7 @@
                         const totalSisaForEdit = currentTotalRemaining + Number(tx.amount);
                         
                         state.selectedPersonGroup = { name: personName, type: type, total: totalSisaForEdit };
-                        state.payDebtForm = { date: tx.date, amount: tx.amount, walletId: tx.walletId, notes: tx.notes, type: type }; 
+                        state.payDebtForm = { date: tx.date, amount: tx.amount, walletId: tx.walletId, notes: tx.notes, type: type, isWriteOff: false }; 
                         state.editingTxId = id; state.isPayDebtModalOpen = true; state.shouldRefreshContent = false; render();
                         return;
                     }
@@ -398,7 +490,7 @@
             openDebtModal: () => { state.editingDebtId = null; state.editingTxId = null; state.debtForm = { type: 'payable', person: '', amount: '', date: getToday(), dueDate: '', notes: '', isOldDebt: false, walletId: state.data.wallets[0]?.id || '' }; state.isDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
             openAddDebtForPerson: (name) => { state.editingDebtId = null; state.editingTxId = null; state.debtForm = { type: 'payable', person: name, amount: '', date: getToday(), dueDate: '', notes: '', isOldDebt: false, walletId: state.data.wallets[0]?.id || '' }; state.isDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
             confirmEditTx: (id) => { triggerConfirm('Edit Pembayaran?', 'Anda akan mengubah data pembayaran ini.', () => { window.app.editTransaction(id); }, 'info'); },
-            openPayDebtModal: (personName, type, totalAmount) => { state.selectedPersonGroup = { name: personName, type: type, total: totalAmount }; state.payDebtForm = { date: getToday(), amount: totalAmount, walletId: state.data.wallets[0]?.id || '', notes: '', type: type }; state.isPayDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
+            openPayDebtModal: (personName, type, totalAmount) => { state.selectedPersonGroup = { name: personName, type: type, total: totalAmount }; state.payDebtForm = { date: getToday(), amount: totalAmount, walletId: state.data.wallets[0]?.id || '', notes: '', type: type, isWriteOff: false }; state.isPayDebtModalOpen = true; state.shouldRefreshContent = false; render(); },
             closeAllModals: () => { state.isSettingsModalOpen = false; state.isTransactionModalOpen = false; state.isTransferModalOpen = false; state.isDebtModalOpen = false; state.isPayDebtModalOpen = false; state.shouldRefreshContent = false; render(); },
             setTxType: (type) => { state.txForm.type = type; state.txForm.categoryId = ''; render(); },
             setTxWallet: (id) => { state.txForm.walletId = id; updateVisualSelection('.tx-wallet-btn', id, 'tx-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'tx-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50 hover:border-slate-200'); },
@@ -443,11 +535,13 @@
                 const { payDebtForm, selectedPersonGroup, editingTxId } = state; 
                 if (!payDebtForm.amount || !payDebtForm.walletId) return showNotification('Eits', 'Data kurang', 'error'); 
                 let paymentAmount = Number(payDebtForm.amount); 
+                const isWriteOff = payDebtForm.isWriteOff || false;
                 
                 if (paymentAmount > (selectedPersonGroup.total + 1)) return showNotification('Kelebihan', 'Melebihi total tagihan', 'error'); 
                 
                 state.isSubmitting = true; render(); 
                 try { 
+                    // ... existing logic to reverse old transaction ...
                     if (editingTxId) { 
                         const oldTx = state.data.transactions.find(t => t.id === editingTxId); 
                         if (oldTx && oldTx.isDebtPayment) { 
@@ -481,22 +575,44 @@
                     const paymentDistribution = []; 
                     
                     for (const debt of personDebts) { 
-                        if (remainingToPay <= 0) break; 
+                        if (remainingToPay <= 0 && !isWriteOff) break; 
+                        
                         const debtRemaining = Number(debt.amount) - Number(debt.paidAmount || 0); 
                         const payForThis = Math.min(remainingToPay, debtRemaining); 
-                        const newPaidTotal = Number(debt.paidAmount || 0) + payForThis; 
-                        const newStatus = newPaidTotal >= Number(debt.amount) ? 'paid' : 'active'; 
+                        
+                        let newPaidTotal = Number(debt.paidAmount || 0) + payForThis; 
+                        let newStatus = newPaidTotal >= Number(debt.amount) ? 'paid' : 'active'; 
+
+                        // LOGIKA IKHLAS (WRITE-OFF):
+                        // Jika fitur ikhlas aktif dan sisa uang pembayaran habis, 
+                        // maka paksa item ini jadi lunas (paidAmount disamakan dengan total amount).
+                        // Ini akan membuat sisa hutang jadi 0 tanpa mencatat transaksi uang masuk.
+                        if (remainingToPay <= 0 && isWriteOff && newStatus === 'active') {
+                            newPaidTotal = Number(debt.amount); // Force lunas
+                            newStatus = 'paid';
+                        }
                         
                         await updateDoc(window.app.getDocPath('debts', debt.id), { paidAmount: newPaidTotal, status: newStatus, updatedAt: new Date().toISOString() }); 
-                        paymentDistribution.push({ debtId: debt.id, amount: payForThis }); 
-                        remainingToPay -= payForThis; 
+                        
+                        // Hanya catat distribusi uang nyata, bukan yang diikhlaskan
+                        if (payForThis > 0) {
+                            paymentDistribution.push({ debtId: debt.id, amount: payForThis }); 
+                        }
+                        
+                        remainingToPay = Math.max(0, remainingToPay - payForThis); 
                     } 
                     
                     const isPayable = selectedPersonGroup.type === 'payable'; 
-                    const txData = { type: isPayable ? 'expense' : 'income', date: payDebtForm.date, amount: paymentAmount, walletId: payDebtForm.walletId, categoryId: 'DEBT_PAYMENT', notes: `Pelunasan ${isPayable ? 'Hutang' : 'Piutang'} ${selectedPersonGroup.name}`, updatedAt: new Date().toISOString(), isDebtPayment: true, paymentDistribution: paymentDistribution }; 
+                    // Jika write-off dan payment 0, mungkin tidak perlu buat transaksi? Tapi user mungkin input 0 lalu write-off.
+                    // Mari kita buat transaksi jika amount > 0.
+                    if (paymentAmount > 0) {
+                         const txData = { type: isPayable ? 'expense' : 'income', date: payDebtForm.date, amount: paymentAmount, walletId: payDebtForm.walletId, categoryId: 'DEBT_PAYMENT', notes: `Pelunasan ${isPayable ? 'Hutang' : 'Piutang'} ${selectedPersonGroup.name} ${isWriteOff ? '(+ Ikhlas Sisa)' : ''}`, updatedAt: new Date().toISOString(), isDebtPayment: true, paymentDistribution: paymentDistribution }; 
                     
-                    if (editingTxId) { await updateDoc(window.app.getDocPath('transactions', editingTxId), txData); showNotification('Sip', 'Pembayaran diperbarui!'); } 
-                    else { txData.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath('transactions'), txData); showNotification('Lunas?', 'Pembayaran tercatat!'); } 
+                        if (editingTxId) { await updateDoc(window.app.getDocPath('transactions', editingTxId), txData); showNotification('Sip', 'Pembayaran diperbarui!'); } 
+                        else { txData.createdAt = new Date().toISOString(); await addDoc(window.app.getDbPath('transactions'), txData); showNotification('Lunas?', 'Pembayaran tercatat!'); } 
+                    } else if (isWriteOff) {
+                        showNotification('Diikhlaskan', 'Sisa hutang dihapus tanpa transaksi dompet.');
+                    }
                     
                     state.isPayDebtModalOpen = false; state.editingTxId = null; 
                 } catch (err) { console.error("Error", err); showNotification('Gagal', 'Coba lagi', 'error'); } 
@@ -511,6 +627,7 @@
 
         // --- RENDER FUNCTIONS (THEMED & COMPACT) ---
         
+        // ... (Render Login, Confirm, Loading, Settings same as before) ...
         function renderLogin() { 
             return `<div class="flex flex-col items-center justify-center w-full h-full p-6 relative overflow-hidden">
                 <div class="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none" style="background-image: radial-gradient(#8b5cf6 2px, transparent 2px); background-size: 30px 30px;"></div>
@@ -955,10 +1072,53 @@
             <div><label class="label-text">Jatuh Tempo</label><input type="date" value="${debtForm.dueDate}" onchange="app.updateForm('debtForm','dueDate',this.value)" class="input-field"></div><div class="flex items-center gap-2"><input type="checkbox" id="old-debt" onchange="app.toggleDebtOld(this.checked)" ${debtForm.isOldDebt?'checked':''}><label for="old-debt" class="text-xs font-bold text-slate-500">Ini hutang lama (jangan kurangi saldo dompet)</label></div><button type="submit" class="btn-primary w-full py-3">Simpan</button></form></div></div>`;
         };
         
+        // --- MODIFIKASI: Add Checkbox Ikhlas ---
         window.app.renderPayDebtModalOriginalHTML = function() {
              const { payDebtForm, data, selectedPersonGroup } = state; 
              const isPayable = selectedPersonGroup.type === 'payable';
-             return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onclick="app.closeAllModals()"></div><div class="bg-white rounded-[2rem] w-full max-w-md animate-pop-in relative"><div class="p-5 border-b border-slate-50 flex justify-between"><h3 class="font-black text-lg text-slate-800">${isPayable ? 'Bayar Hutang' : 'Terima Piutang'}</h3><button onclick="app.closeAllModals()" class="p-1.5 bg-slate-100 rounded-full"><i data-lucide="x" width="18"></i></button></div><form onsubmit="app.submitDebtPayment(event)" class="p-6 space-y-4"><div class="bg-indigo-50 p-3 rounded-xl text-center"><p class="font-bold text-indigo-800 text-lg">${selectedPersonGroup.name}</p><p class="text-xs text-indigo-500 font-medium">Total Sisa: ${formatRupiah(selectedPersonGroup.total)}</p></div><div><label class="label-text">Tanggal Transaksi</label><input type="date" value="${payDebtForm.date}" onchange="app.updateForm('payDebtForm','date',this.value)" class="input-field"></div><div><label class="label-text">Masuk/Keluar Dompet</label><div class="grid grid-cols-2 gap-2">${data.wallets.map(w=>`<button type="button" data-value="${w.id}" onclick="app.setPayDebtWallet('${w.id}')" class="paydebt-wallet-btn p-2.5 rounded-xl border text-left ${payDebtForm.walletId===w.id?'bg-indigo-50 border-indigo-400':'bg-white border-slate-100'}"><span class="font-bold text-xs">${w.name}</span></button>`).join('')}</div></div><div><label class="label-text">Jumlah Dibayar</label><input type="text" value="${formatNumberString(String(payDebtForm.amount))}" oninput="app.handleNumberInput('payDebtForm','amount',this)" class="input-field font-black text-lg" autofocus></div><button type="submit" class="btn-primary w-full py-3">Proses Pembayaran</button></form></div></div>`;
+             return `
+             <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onclick="app.closeAllModals()"></div>
+                <div class="bg-white rounded-[2rem] w-full max-w-md animate-pop-in relative">
+                    <div class="p-5 border-b border-slate-50 flex justify-between">
+                        <h3 class="font-black text-lg text-slate-800">${isPayable ? 'Bayar Hutang' : 'Terima Piutang'}</h3>
+                        <button onclick="app.closeAllModals()" class="p-1.5 bg-slate-100 rounded-full"><i data-lucide="x" width="18"></i></button>
+                    </div>
+                    <form onsubmit="app.submitDebtPayment(event)" class="p-6 space-y-4">
+                        <div class="bg-indigo-50 p-3 rounded-xl text-center relative overflow-hidden">
+                            <div class="relative z-10">
+                                <p class="font-bold text-indigo-800 text-lg">${selectedPersonGroup.name}</p>
+                                <p class="text-xs text-indigo-500 font-medium">Total Sisa: ${formatRupiah(selectedPersonGroup.total)}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="label-text">Tanggal Transaksi</label>
+                            <input type="date" value="${payDebtForm.date}" onchange="app.updateForm('payDebtForm','date',this.value)" class="input-field">
+                        </div>
+                        <div>
+                            <label class="label-text">Masuk/Keluar Dompet</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${data.wallets.map(w => `<button type="button" data-value="${w.id}" onclick="app.setPayDebtWallet('${w.id}')" class="paydebt-wallet-btn p-2.5 rounded-xl border text-left ${payDebtForm.walletId === w.id ? 'bg-indigo-50 border-indigo-400' : 'bg-white border-slate-100'}"><span class="font-bold text-xs">${w.name}</span></button>`).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="label-text">Jumlah Dibayar</label>
+                            <input type="text" value="${formatNumberString(String(payDebtForm.amount))}" oninput="app.handleNumberInput('payDebtForm','amount',this)" class="input-field font-black text-lg" autofocus>
+                        </div>
+                        
+                        <!-- NEW: Checkbox Ikhlas -->
+                        <div class="flex items-start gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                             <input type="checkbox" id="write-off" class="mt-1" onchange="state.payDebtForm.isWriteOff = this.checked">
+                             <label for="write-off" class="text-xs text-slate-600 leading-tight">
+                                <span class="font-bold block text-slate-700 mb-0.5">Anggap Lunas (Ikhlaskan) Sisanya?</span>
+                                Jika dicentang, sisa hutang akan dihapus permanen meskipun uang yang dibayar kurang dari total tagihan.
+                             </label>
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full py-3">Proses Pembayaran</button>
+                    </form>
+                </div>
+            </div>`;
         };
         
         window.app.renderSettingsModalOriginal = function() {
@@ -1005,6 +1165,7 @@
                 </div>`;
         };
         
+        // --- MODIFIKASI: Render Debt Grouped (Add Filter & Features) ---
         window.app.renderDebtsGrouped = function() { 
              const { debts, transactions, wallets } = state.data; const grouped = {}; 
              let globalPayable = 0;
@@ -1035,12 +1196,34 @@
                      }
                  }
              });
-            const groupedList = Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name));
             
-            // 2. Render View
+            // 2. Sorting Logic
+            let groupedList = Object.values(grouped);
+            if (state.debtSortMode === 'highest') {
+                groupedList.sort((a, b) => (b.totalPayable + b.totalReceivable) - (a.totalPayable + a.totalReceivable));
+            } else if (state.debtSortMode === 'oldest') {
+                // Find oldest active debt in each group
+                const getOldestDate = (group) => {
+                    const activeItems = group.items.filter(i => (i.amount - (i.paidAmount||0)) > 0);
+                    if (activeItems.length === 0) return new Date(); // Lunas push to bottom
+                    return activeItems.reduce((min, p) => p.date < min ? p.date : min, activeItems[0].date);
+                };
+                groupedList.sort((a, b) => new Date(getOldestDate(a)) - new Date(getOldestDate(b)));
+            } else if (state.debtSortMode === 'due_soon') {
+                const getMinDue = (group) => {
+                     const dueItems = group.items.filter(i => (i.amount - (i.paidAmount||0)) > 0 && i.dueDate);
+                     if (dueItems.length === 0) return '9999-12-31';
+                     return dueItems.reduce((min, p) => p.dueDate < min ? p.dueDate : min, dueItems[0].dueDate);
+                };
+                groupedList.sort((a, b) => new Date(getMinDue(a)) - new Date(getMinDue(b)));
+            } else {
+                groupedList.sort((a, b) => a.name.localeCompare(b.name));
+            }
+            
+            // 3. Render View
             return `
             <div class="space-y-6 animate-pop-in">
-                <!-- Header Summary Cards (Sama seperti sebelumnya) -->
+                <!-- Header Summary Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="bg-gradient-to-br from-rose-500 to-rose-600 rounded-[1.75rem] p-6 text-white shadow-lg shadow-rose-200 relative overflow-hidden group">
                          <div class="relative z-10">
@@ -1064,9 +1247,25 @@
                     </div>
                 </div>
 
-                <!-- Action & Title -->
-                <div class="flex justify-between items-center px-1">
-                    <h3 class="font-black text-slate-700 text-lg flex items-center gap-2"><i data-lucide="users" width="20" class="text-indigo-500"></i> Daftar Orang</h3>
+                <!-- Action & Filter Bar -->
+                <div class="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4 px-1">
+                    <div class="flex items-center gap-3">
+                        <h3 class="font-black text-slate-700 text-lg flex items-center gap-2"><i data-lucide="users" width="20" class="text-indigo-500"></i> Daftar Orang</h3>
+                        
+                        <!-- Sort Dropdown -->
+                        <div class="relative group z-20">
+                            <button class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1 shadow-sm">
+                                <i data-lucide="arrow-up-down" width="12"></i> Urutkan
+                            </button>
+                            <div class="absolute left-0 mt-1 w-40 bg-white border border-slate-100 rounded-xl shadow-xl p-1 hidden group-hover:block animate-pop-in">
+                                <button onclick="app.setDebtSort('default')" class="w-full text-left px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 rounded-lg ${state.debtSortMode==='default'?'bg-indigo-50 text-indigo-600':''}">Nama (A-Z)</button>
+                                <button onclick="app.setDebtSort('highest')" class="w-full text-left px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 rounded-lg ${state.debtSortMode==='highest'?'bg-indigo-50 text-indigo-600':''}">Nominal Terbesar</button>
+                                <button onclick="app.setDebtSort('oldest')" class="w-full text-left px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 rounded-lg ${state.debtSortMode==='oldest'?'bg-indigo-50 text-indigo-600':''}">Paling Lama</button>
+                                <button onclick="app.setDebtSort('due_soon')" class="w-full text-left px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 rounded-lg ${state.debtSortMode==='due_soon'?'bg-indigo-50 text-indigo-600':''}">Jatuh Tempo</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <button onclick="app.openDebtModal()" class="px-5 py-2 bg-slate-800 text-white rounded-xl font-bold text-xs shadow-lg hover:bg-slate-900 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2">
                         <i data-lucide="plus" width="16"></i> Catat Baru
                     </button>
@@ -1081,7 +1280,6 @@
                         const safeId = group.name.replace(/[^a-zA-Z0-9]/g, '_'); 
                         const isExpanded = state.expandedPerson === group.name;
 
-                        // Tentukan Status Utama
                         let statusColor = 'bg-slate-100 text-slate-500';
                         let statusText = 'Lunas';
                         let mainAmount = 0;
@@ -1108,34 +1306,39 @@
                              payType = 'receivable'; showPayButton = true;
                              progress = group.originalReceivable > 0 ? ((group.originalReceivable - group.totalReceivable) / group.originalReceivable) * 100 : 100;
                         } else {
-                             // Lunas
                              payType = (group.originalPayable > group.originalReceivable) ? 'payable' : 'receivable';
                         }
+                        
+                        // Check Due Date Status
+                        let dueStatusHTML = '';
+                        const today = new Date().toISOString().split('T')[0];
+                        let hasOverdue = false;
+                        let hasWarning = false;
+                        
+                        group.items.forEach(d => {
+                            const sisa = d.amount - (d.paidAmount||0);
+                            if (sisa > 0 && d.dueDate) {
+                                if (d.dueDate < today) hasOverdue = true;
+                                else {
+                                    const diffTime = Math.abs(new Date(d.dueDate) - new Date(today));
+                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                                    if (diffDays <= 3) hasWarning = true;
+                                }
+                            }
+                        });
+                        
+                        if (hasOverdue) dueStatusHTML = `<div class="absolute top-0 right-0 p-2"><div class="w-3 h-3 bg-rose-500 rounded-full animate-pulse shadow-md border-2 border-white" title="Ada yang lewat jatuh tempo!"></div></div>`;
+                        else if (hasWarning) dueStatusHTML = `<div class="absolute top-0 right-0 p-2"><div class="w-3 h-3 bg-amber-400 rounded-full shadow-md border-2 border-white" title="Jatuh tempo dekat!"></div></div>`;
 
                         // --- LOGIKA TIMELINE ---
-                        // Menggabungkan Item Hutang (Creation) & Pembayaran (Transactions)
                         const timeline = [];
 
-                        // 1. Masukkan Item Pembuatan Hutang
                         group.items.forEach(item => {
-                            // Cari wallet jika ada di transaksi terkait
                             const relatedTx = transactions.find(t => t.relatedDebtId === item.id && !t.isDebtPayment);
                             const walletName = relatedTx ? (wallets.find(w => w.id === relatedTx.walletId)?.name || 'Dihapus') : (item.isOldDebt ? 'Hutang Lama' : '-');
-                            
-                            timeline.push({
-                                id: item.id,
-                                type: 'creation',
-                                subType: item.type, // payable / receivable
-                                date: item.date,
-                                amount: item.amount,
-                                notes: item.notes,
-                                wallet: walletName,
-                                raw: item
-                            });
+                            timeline.push({ id: item.id, type: 'creation', subType: item.type, date: item.date, amount: item.amount, notes: item.notes, wallet: walletName, raw: item });
                         });
 
-                        // 2. Masukkan Item Pembayaran
-                        // Filter transaksi yang berhubungan dengan orang ini
                         const personDebtIds = group.items.map(d => d.id);
                         const personPayments = transactions.filter(tx => {
                             if (!tx.isDebtPayment && tx.categoryId !== 'DEBT_PAYMENT') return false;
@@ -1146,29 +1349,18 @@
 
                         personPayments.forEach(tx => {
                              const walletName = wallets.find(w => w.id === tx.walletId)?.name || 'Dihapus';
-                             timeline.push({
-                                 id: tx.id,
-                                 type: 'payment',
-                                 subType: (payType === 'payable') ? 'payment_out' : 'payment_in', // Asumsi pembayaran mengikuti status dominan
-                                 date: tx.date,
-                                 amount: tx.amount,
-                                 notes: tx.notes,
-                                 wallet: walletName,
-                                 raw: tx
-                             });
+                             timeline.push({ id: tx.id, type: 'payment', subType: (payType === 'payable') ? 'payment_out' : 'payment_in', date: tx.date, amount: tx.amount, notes: tx.notes, wallet: walletName, raw: tx });
                         });
 
-                        // 3. Sortir Berdasarkan Tanggal (Lama -> Baru untuk Chat Flow)
+                        // Sorting: Terlama ke Terbaru (Ascending)
                         timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                        // Render Chat Bubbles
+                        // Render List Style
                         const renderTimeline = () => {
                             if (timeline.length === 0) return '<p class="text-center text-slate-400 text-xs py-4">Belum ada riwayat</p>';
-                            
                             let currentMonth = '';
 
                             return timeline.map(item => {
-                                // Separator Bulan
                                 const dateObj = new Date(item.date);
                                 const monthStr = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
                                 let monthHeader = '';
@@ -1177,86 +1369,94 @@
                                     monthHeader = `<div class="flex justify-center my-3"><span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">${monthStr}</span></div>`;
                                 }
 
-                                // Tentukan Posisi & Warna
-                                // LOGIKA POSISI:
-                                // KANAN (Me): Uang Keluar dari Dompet Saya (Saya Kasih Pinjaman, Saya Bayar Hutang)
-                                // KIRI (Them): Uang Masuk ke Dompet Saya (Saya Terima Pinjaman, Saya Terima Bayaran)
-                                
-                                let isMe = false; // False = Kiri, True = Kanan
+                                let isMe = false;
                                 let bubbleClass = '';
-                                let icon = '';
                                 let title = '';
+                                let dueDateInfo = '';
 
+                                // Logika Warna & Status
                                 if (item.type === 'creation') {
-                                    // Pembuatan Hutang
                                     if (item.subType === 'payable') {
-                                        // Saya Hutang -> Terima Uang (Kiri)
                                         isMe = false; 
-                                        bubbleClass = 'bg-white border-rose-200 text-slate-700 rounded-tl-none border';
-                                        icon = 'arrow-down-left';
+                                        bubbleClass = 'bg-white border-rose-200 text-slate-700 border';
                                         title = 'Hutang Baru';
                                     } else {
-                                        // Saya Piutang -> Keluar Uang (Kanan)
                                         isMe = true;
-                                        bubbleClass = 'bg-indigo-50 border-indigo-200 text-indigo-900 rounded-tr-none border';
-                                        icon = 'arrow-up-right';
+                                        bubbleClass = 'bg-indigo-50 border-indigo-200 text-indigo-900 border';
                                         title = 'Piutang Baru';
                                     }
-                                } else {
-                                    // Pembayaran
-                                    // Cek arah uang berdasarkan tipe transaksi (Expense = Keluar, Income = Masuk)
-                                    // Atau cek kategori DEBT_PAYMENT.
-                                    // Jika 'expense' (Keluar) -> Kanan. Jika 'income' (Masuk) -> Kiri.
-                                    const txType = item.raw.type; // expense / income
                                     
-                                    if (txType === 'expense') {
-                                        // Uang Keluar (Saya Bayar)
+                                    // Due Date Check for Individual Bubble
+                                    if (item.raw.dueDate && (item.raw.amount - (item.raw.paidAmount||0) > 0)) {
+                                        const dDate = new Date(item.raw.dueDate);
+                                        const tDate = new Date(today);
+                                        const dDiff = Math.ceil((dDate - tDate) / (1000 * 60 * 60 * 24));
+                                        
+                                        if (dDiff < 0) dueDateInfo = `<span class="text-[8px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-md ml-2">Telat ${Math.abs(dDiff)} Hari</span>`;
+                                        else if (dDiff <= 3) dueDateInfo = `<span class="text-[8px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md ml-2">H-${dDiff} Jatuh Tempo</span>`;
+                                    }
+                                } else {
+                                    if (item.raw.type === 'expense') {
                                         isMe = true;
-                                        bubbleClass = 'bg-indigo-600 border-indigo-600 text-white rounded-tr-none shadow-md';
-                                        icon = 'check';
+                                        bubbleClass = 'bg-indigo-600 border-indigo-600 text-white shadow-md border-0';
                                         title = 'Saya Bayar';
                                     } else {
-                                        // Uang Masuk (Dia Bayar)
                                         isMe = false;
-                                        bubbleClass = 'bg-emerald-50 border-emerald-200 text-emerald-800 rounded-tl-none border';
-                                        icon = 'check';
+                                        bubbleClass = 'bg-emerald-50 border-emerald-200 text-emerald-800 border';
                                         title = 'Diterima';
                                     }
                                 }
 
                                 const formatD = new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-                                
-                                // Tombol Aksi
-                                const actionButtons = `
-                                    <div class="flex gap-2 mt-2 pt-2 border-t ${isMe && item.type === 'payment' ? 'border-indigo-500/30 justify-end' : (isMe ? 'border-indigo-200/50 justify-end' : 'border-slate-100 justify-start')} opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onclick="${item.type === 'creation' ? `app.editDebtItem('${item.id}')` : `app.editTransaction('${item.id}')`}" class="text-[10px] font-bold ${isMe && item.type === 'payment' ? 'text-indigo-200 hover:text-white' : 'text-indigo-400 hover:text-indigo-600'} flex items-center gap-1"><i data-lucide="edit-2" width="10"></i> Edit</button>
-                                        <button onclick="${item.type === 'creation' ? `app.deleteDebt('${item.id}')` : `app.deleteTransaction('${item.id}')`}" class="text-[10px] font-bold ${isMe && item.type === 'payment' ? 'text-rose-300 hover:text-white' : 'text-rose-400 hover:text-rose-600'} flex items-center gap-1"><i data-lucide="trash" width="10"></i> Hapus</button>
+
+                                // Template Tombol (Vertikal Atas Bawah & Selalu Terlihat)
+                                const buttonsHtml = `
+                                    <div class="flex flex-col gap-0.5 justify-center h-full">
+                                        <button onclick="${item.type === 'creation' ? `app.editDebtItem('${item.id}')` : `app.editTransaction('${item.id}')`}" 
+                                            class="p-1 rounded hover:bg-black/10 transition-colors ${isMe && item.type === 'payment' ? 'text-indigo-200 hover:text-white' : 'text-indigo-400 hover:text-indigo-600'}" title="Edit">
+                                            <i data-lucide="edit-2" width="12"></i>
+                                        </button>
+                                        <button onclick="${item.type === 'creation' ? `app.deleteDebt('${item.id}')` : `app.deleteTransaction('${item.id}')`}" 
+                                            class="p-1 rounded hover:bg-black/10 transition-colors ${isMe && item.type === 'payment' ? 'text-rose-300 hover:text-white' : 'text-rose-400 hover:text-rose-600'}" title="Hapus">
+                                            <i data-lucide="trash" width="12"></i>
+                                        </button>
                                     </div>
                                 `;
 
                                 return `
                                     ${monthHeader}
-                                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'} group mb-3">
-                                        <div class="max-w-[85%] relative">
-                                            <div class="p-3 shadow-sm rounded-2xl ${bubbleClass} relative">
-                                                <div class="flex justify-between items-start gap-3 mb-1">
-                                                    <span class="text-[10px] font-bold uppercase tracking-wider ${isMe && item.type === 'payment' ? 'text-indigo-100' : 'opacity-60'}">${title}</span>
-                                                    <span class="text-[10px] font-bold ${isMe && item.type === 'payment' ? 'text-indigo-200' : 'opacity-50'}">${formatD}</span>
-                                                </div>
-                                                
-                                                <div class="flex items-center gap-2 mb-1">
-                                                    <h4 class="font-black text-sm">${formatRupiah(item.amount)}</h4>
-                                                    ${item.type === 'payment' ? `<i data-lucide="check-circle" width="14" class="${isMe && item.type === 'payment' ? 'text-white' : 'text-emerald-500'}"></i>` : ''}
-                                                </div>
-                                                
-                                                <p class="text-xs leading-relaxed italic mb-2 ${isMe && item.type === 'payment' ? 'text-indigo-100' : 'opacity-80 text-slate-600'}">"${item.notes || '-'}"</p>
-                                                
-                                                <div class="flex items-center gap-1 text-[9px] font-bold w-fit px-1.5 py-0.5 rounded ${isMe && item.type === 'payment' ? 'bg-indigo-700 text-indigo-200' : 'bg-slate-100 text-slate-500'}">
-                                                    <i data-lucide="wallet" width="8"></i> ${item.wallet}
-                                                </div>
+                                    <div class="group mb-2 relative">
+                                        <div class="w-full px-2 py-2 rounded-xl flex items-center gap-2 transition-all ${bubbleClass}">
+                                            
+                                            <!-- Tombol KIRI untuk PEMBAYARAN -->
+                                            ${item.type === 'payment' ? buttonsHtml : ''}
 
-                                                ${actionButtons}
+                                            <!-- Konten Utama (Tengah) -->
+                                            <div class="flex-1 min-w-0 flex flex-col justify-center py-1">
+                                                <div class="flex justify-between items-baseline mb-1">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-[10px] font-bold uppercase tracking-wider ${isMe && item.type === 'payment' ? 'text-indigo-100' : 'opacity-60'}">${title}</span>
+                                                         ${item.type === 'payment' ? `<i data-lucide="check-circle" width="12" class="${isMe && item.type === 'payment' ? 'text-white' : 'text-emerald-500'}"></i>` : ''}
+                                                         ${dueDateInfo}
+                                                    </div>
+                                                    <span class="text-[9px] font-bold ${isMe && item.type === 'payment' ? 'text-indigo-200' : 'opacity-50'}">${formatD}</span>
+                                                </div>
+                                                
+                                                <!-- Nominal -->
+                                                <h4 class="font-black text-sm leading-none mb-1.5">${formatRupiah(item.amount)}</h4>
+                                                
+                                                <!-- Keterangan & Dompet (Pindah ke bawah) -->
+                                                <div class="flex items-center justify-between gap-2 border-t border-black/5 pt-1.5 mt-0.5">
+                                                     <span class="text-[10px] opacity-80 italic truncate max-w-[70%] ${isMe && item.type === 'payment' ? 'text-indigo-50' : ''}">"${item.notes || '-'}"</span>
+                                                     <div class="flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${isMe && item.type === 'payment' ? 'bg-black/20 text-indigo-100' : 'bg-slate-100 text-slate-500'}">
+                                                        <i data-lucide="wallet" width="8"></i> ${item.wallet}
+                                                    </div>
+                                                </div>
                                             </div>
+
+                                            <!-- Tombol KANAN untuk HUTANG/PIUTANG BARU -->
+                                            ${item.type === 'creation' ? buttonsHtml : ''}
+
                                         </div>
                                     </div>
                                 `;
@@ -1264,12 +1464,13 @@
                         };
 
                         return `
-                        <div class="card-friendly border-0 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group flex flex-col">
+                        <div class="card-friendly border-0 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group flex flex-col relative">
+                            ${dueStatusHTML}
                             <!-- Header Kartu -->
                             <div class="p-5 bg-white relative z-10 border-b border-slate-50">
                                 <div class="flex items-center justify-between mb-3">
                                     <div class="flex items-center gap-3">
-                                         <div class="w-12 h-12 rounded-2xl ${statusColor} bg-opacity-20 flex items-center justify-center font-black text-lg shadow-sm border border-white/50">
+                                         <div class="w-12 h-12 rounded-2xl ${statusColor} bg-opacity-20 flex items-center justify-center font-black text-lg shadow-sm border border-white/50 relative">
                                             ${group.name.charAt(0).toUpperCase()}
                                          </div>
                                          <div class="min-w-0">
@@ -1280,7 +1481,14 @@
                                          </div>
                                     </div>
                                     <div class="text-right flex-shrink-0">
-                                        <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold ${statusColor} mb-1">${statusText}</span>
+                                        <div class="flex items-center justify-end gap-1 mb-1">
+                                            <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold ${statusColor}">${statusText}</span>
+                                            <!-- WhatsApp Button if Debt > 0 -->
+                                            ${mainAmount > 0 ? `
+                                            <button onclick="app.openWhatsApp('${safeName}', ${mainAmount}, '${payType}')" class="p-0.5 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors shadow-sm" title="Tagih via WA">
+                                                <i data-lucide="message-circle" width="12"></i>
+                                            </button>` : ''}
+                                        </div>
                                         <span class="block font-black text-xl text-slate-700">${formatRupiah(mainAmount)}</span>
                                     </div>
                                 </div>
@@ -1298,6 +1506,11 @@
                                     
                                     <button onclick="app.openAddDebtForPerson('${safeName}')" class="px-3 py-2 rounded-xl bg-indigo-50 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-600 border border-indigo-100 transition-colors" title="Tambah Hutang Baru">
                                         <i data-lucide="plus" width="16"></i>
+                                    </button>
+                                    
+                                    <!-- Copy Button -->
+                                    <button onclick="app.copyDebtStatement('${safeName}')" class="px-3 py-2 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" title="Salin Rincian">
+                                        <i data-lucide="copy" width="16"></i>
                                     </button>
 
                                     <button onclick="app.toggleExpandPerson('${safeName}')" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors flex items-center justify-center gap-1 min-w-[44px]" title="Lihat Chat">
