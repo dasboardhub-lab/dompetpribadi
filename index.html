@@ -10,6 +10,9 @@
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+  
+    <!-- ADDED: Lordicon (Animated Icons) -->
+    <script src="https://cdn.lordicon.com/lordicon.js"></script>
     
     <!-- Google Fonts: Plus Jakarta Sans (Rounded Feel) -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -739,26 +742,46 @@
 
             let mainContentArea = document.getElementById('main-content-area');
             if (!mainContentArea) {
-                const menuItems = [{ id: 'dashboard', label: 'Ringkasan', icon: 'layout-grid' }, { id: 'debts', label: 'Hutang', icon: 'users' }, { id: 'settings', label: 'Atur', icon: 'settings-2' }];
+                // UPDATE: Menu Items sekarang menggunakan URL Lordicon
+                const menuItems = [
+                    { id: 'dashboard', label: 'Ringkasan', icon: 'layout-grid', anim: 'https://cdn.lordicon.com/cnpvyndp.json' }, 
+                    { id: 'debts', label: 'Hutang', icon: 'users', anim: 'https://cdn.lordicon.com/uukerzzv.json' }, 
+                    { id: 'settings', label: 'Atur', icon: 'settings-2', anim: 'https://cdn.lordicon.com/dycatgju.json' }
+                ];
+                
                 appDiv.innerHTML = `
                     <nav id="navbar-area" class="glass-nav sticky top-0 z-30 transition-all duration-300">
                         <div class="max-w-7xl mx-auto px-4 sm:px-6">
-                            <div class="flex items-center justify-between h-16"> <!-- Reduced height -->
+                            <div class="flex items-center justify-between h-16">
                                 <div class="flex items-center gap-2 group cursor-default">
-                                    <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-500/20 group-hover:scale-105 group-hover:rotate-6 transition-all duration-500"><i data-lucide="sparkles" width="18"></i></div>
+                                    <!-- Animasi Logo: Sparkles -->
+                                    <div class="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-all duration-500">
+                                        <lord-icon src="https://cdn.lordicon.com/tqywkdcz.json" trigger="loop" delay="2000" colors="primary:#ffffff" style="width:24px;height:24px"></lord-icon>
+                                    </div>
                                     <div class="flex flex-col">
                                         <span class="font-black text-base text-slate-800 tracking-tight leading-none group-hover:text-violet-600 transition-colors">MyKeuangan</span>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-1 bg-white/80 p-1 rounded-full border border-white shadow-sm">
-                                    ${menuItems.map(item => `<button id="nav-btn-${item.id}" onclick="app.setMenu('${item.id}')" class="relative px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"><i data-lucide="${item.icon}" width="16"></i><span class="hidden sm:inline">${item.label}</span></button>`).join('')}
+                                    ${menuItems.map(item => `
+                                        <button id="nav-btn-${item.id}" onclick="app.setMenu('${item.id}')" class="relative px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 group">
+                                            <!-- Menggunakan Lordicon untuk Menu -->
+                                            <lord-icon 
+                                                src="${item.anim}" 
+                                                trigger="hover" 
+                                                colors="primary:#64748b,secondary:#8b5cf6" 
+                                                style="width:20px;height:20px"
+                                                class="opacity-70 group-hover:opacity-100 transition-opacity">
+                                            </lord-icon>
+                                            <span class="hidden sm:inline">${item.label}</span>
+                                        </button>`).join('')}
                                 </div>
                                 <button onclick="app.logout()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500 rounded-full transition-all border border-slate-200 hover:border-rose-500 shadow-sm hover:shadow-lg hover:shadow-rose-200 hover:rotate-90" title="Keluar"><i data-lucide="power" width="16"></i></button>
                             </div>
                         </div>
                     </nav>
                     <main id="main-content-scroller" class="flex-1 overflow-y-auto scroll-smooth">
-                        <div id="main-content-area" class="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24"></div> <!-- Reduced padding -->
+                        <div id="main-content-area" class="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24"></div> 
                     </main>
                     
                     <!-- Wadah Tombol Floating Action Button (FAB) -->
