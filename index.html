@@ -496,11 +496,7 @@
             // --- NEW: Debt Features Methods ---
             setDebtSort: (mode) => { state.debtSortMode = mode; state.shouldRefreshContent = true; render(); },
             
-            openWhatsApp: (name, amount, type) => {
-                const message = `Halo ${name}, sekadar mengingatkan ${type === 'payable' ? 'saya ada hutang sebesar' : 'kamu ada total hutang sebesar'} ${formatRupiah(amount)}. Mohon dicek ya, terima kasih!`;
-                const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-                window.open(url, '_blank');
-            },
+            // FUNGSI openWhatsApp DIHAPUS DARI SINI
             
             copyDebtStatement: (personName) => {
                 const { debts, transactions } = state.data;
@@ -1313,42 +1309,50 @@
                             <div>
                                 <h3 class="font-black text-base text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="bar-chart-3" width="18" class="text-indigo-500"></i> Analisa Budget</h3>
                                 <div class="card-friendly p-5 relative overflow-hidden bg-white group">
-                                    
-                                    <!-- Info Angka (Sekarang di Atas) -->
-                                    <div class="flex justify-between items-end mb-3 relative z-10">
-                                        <div>
-                                            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Total Terpakai</p>
-                                            <div class="flex items-baseline gap-1.5">
-                                                <h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalBudgetSpent)}</h3>
-                                                <span class="text-slate-400 text-xs font-bold">/ ${formatRupiah(totalBudget)}</span>
+                                    ${totalBudget > 0 ? `
+                                        <div class="flex gap-4 items-stretch h-full">
+                                            <!-- KIRI (70%): Info Angka & Progress Bar -->
+                                            <div class="w-3/4 flex flex-col justify-between">
+                                                <div>
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Total Terpakai</p>
+                                                        <div class="px-2 py-0.5 rounded text-[10px] font-black border ${totalBudgetPercent > 100 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
+                                                            ${totalBudgetPercent.toFixed(0)}%
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex items-baseline gap-1.5">
+                                                        <h3 class="text-2xl font-black text-slate-800 leading-none">${formatRupiah(totalBudgetSpent)}</h3>
+                                                        <span class="text-xs text-slate-400 font-bold">/ ${formatRupiah(totalBudget)}</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden shadow-inner mt-2">
+                                                    <div class="h-full rounded-full transition-all duration-1000 ease-out shadow-sm ${totalBudgetPercent > 100 ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-indigo-400 to-indigo-500'}" style="width: ${Math.min(100, totalBudgetPercent)}%"></div>
+                                                </div>
+                                            </div>
+
+                                            <!-- KANAN (30%): Summary Vertical (Icon & Status) -->
+                                            <div class="w-1/4 bg-${budgetTheme}-50 border border-${budgetTheme}-100 rounded-xl p-2 flex flex-col items-center justify-center text-center gap-1 min-w-[80px]">
+                                                <div class="w-8 h-8 rounded-full bg-white text-${budgetTheme}-500 flex items-center justify-center shadow-sm mb-1 border border-${budgetTheme}-100">
+                                                    <i data-lucide="${budgetIcon}" width="16"></i>
+                                                </div>
+                                                <div class="leading-tight w-full">
+                                                    <p class="text-[10px] font-bold text-${budgetTheme}-700 mb-0.5">
+                                                        ${totalBudgetPercent > 100 ? 'Over!' : 'Aman'}
+                                                    </p>
+                                                    <p class="text-[9px] text-${budgetTheme}-600/80 font-medium truncate px-1">
+                                                        ${totalBudgetPercent > 100 ? '+' + formatRupiah(Math.abs(remainingBudget)) : 'Sisa ' + formatRupiah(remainingBudget)}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="px-2.5 py-1 rounded-lg flex items-center justify-center font-black text-xs border ${totalBudgetPercent > 100 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
-                                            ${totalBudgetPercent.toFixed(0)}%
+                                    ` : `
+                                        <div class="text-center py-4">
+                                            <div class="w-10 h-10 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-2"><i data-lucide="target" width="18"></i></div>
+                                            <p class="text-slate-500 font-bold text-xs">Belum ada anggaran.</p>
+                                            <button onclick="app.openSettingsModal('add', null, 'expense')" class="text-indigo-500 text-[10px] font-bold hover:underline mt-1">Atur di Pengaturan</button>
                                         </div>
-                                    </div>
-
-                                    <!-- Progress Bar -->
-                                    <div class="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner p-0.5 mb-4">
-                                        <div class="h-full rounded-full ${totalBudgetPercent > 100 ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-indigo-400 to-indigo-500'} transition-all duration-1000 ease-out shadow-sm relative overflow-hidden" style="width: ${Math.min(100, totalBudgetPercent)}%">
-                                            <div class="absolute inset-0 bg-white/30 w-full h-full animate-[shimmer_2s_infinite]" style="background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); transform: skewX(-20deg);"></div>
-                                        </div>
-                                    </div>
-
-                                    <!-- BAGIAN BARU: Summary Status (Pindah ke Bawah & Lebih Informatif) -->
-                                    <div class="bg-${budgetTheme}-50 rounded-xl p-3 border border-${budgetTheme}-100 flex gap-3 items-start relative overflow-hidden transition-all">
-                                        <!-- Decorative Blob -->
-                                        <div class="absolute -right-2 -top-2 w-12 h-12 bg-${budgetTheme}-200 rounded-full blur-xl opacity-40"></div>
-                                        
-                                        <div class="w-8 h-8 rounded-full bg-white border border-${budgetTheme}-200 text-${budgetTheme}-500 flex items-center justify-center shadow-sm flex-shrink-0 z-10">
-                                            <i data-lucide="${budgetIcon}" width="14"></i>
-                                        </div>
-                                        <div class="relative z-10">
-                                            <p class="font-bold text-${budgetTheme}-700 text-xs mb-0.5">${budgetTitle}</p>
-                                            <p class="text-[10px] text-${budgetTheme}-600/80 leading-relaxed font-medium">${budgetDesc}</p>
-                                        </div>
-                                    </div>
-
+                                    `}
                                 </div>
                             </div>
 
@@ -1895,11 +1899,7 @@
                                     <div class="text-right flex-shrink-0">
                                         <div class="flex items-center justify-end gap-1 mb-1">
                                             <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold ${statusColor}">${statusText}</span>
-                                            <!-- WhatsApp Button if Debt > 0 -->
-                                            ${mainAmount > 0 ? `
-                                            <button onclick="app.openWhatsApp('${safeName}', ${mainAmount}, '${payType}')" class="p-0.5 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors shadow-sm" title="Tagih via WA">
-                                                <i data-lucide="message-circle" width="12"></i>
-                                            </button>` : ''}
+                                            <!-- TOMBOL WA DIHAPUS -->
                                         </div>
                                         <span class="block font-black text-xl text-slate-700">${formatRupiah(mainAmount)}</span>
                                     </div>
