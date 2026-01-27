@@ -338,11 +338,7 @@
             handleLoginInput: (val) => { state.loginCodeInput = val.toUpperCase().replace(/[^A-Z0-9]/g, ''); const el = document.getElementById('login-input'); if(el && el.value !== state.loginCodeInput) el.value = state.loginCodeInput; },
             login: (e) => { 
                 e.preventDefault(); 
-                
-                // SECURITY UPDATE: Gunakan Base64 agar kode asli tidak terbaca di Inspect Element
-                // 'GAFFI12' jika di-convert ke Base64 menjadi 'R0FGRkkxMg=='
-                // Cara cek kode lain: Buka Console Browser (F12) -> ketik: btoa('KODEMU')
-                
+
                 if (btoa(state.loginCodeInput) !== 'R0FGRkkxMg==') { 
                     return showNotification('Akses Ditolak', 'Maaf, ini aplikasi pribadi.', 'error'); 
                 } 
