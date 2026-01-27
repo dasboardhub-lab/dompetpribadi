@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyKeuangan V2</title>
+    <title>MyKeuangan V4</title>
     <link rel="icon" type="image/png" href="favicon.png">    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -338,7 +338,11 @@
             handleLoginInput: (val) => { state.loginCodeInput = val.toUpperCase().replace(/[^A-Z0-9]/g, ''); const el = document.getElementById('login-input'); if(el && el.value !== state.loginCodeInput) el.value = state.loginCodeInput; },
             login: (e) => { 
                 e.preventDefault(); 
-
+                
+                // SECURITY UPDATE: Gunakan Base64 agar kode asli tidak terbaca di Inspect Element
+                // 'GAFFI12' jika di-convert ke Base64 menjadi 'R0FGRkkxMg=='
+                // Cara cek kode lain: Buka Console Browser (F12) -> ketik: btoa('KODEMU')
+                
                 if (btoa(state.loginCodeInput) !== 'R0FGRkkxMg==') { 
                     return showNotification('Akses Ditolak', 'Maaf, ini aplikasi pribadi.', 'error'); 
                 } 
@@ -1083,6 +1087,48 @@
             const totalAssets = wallets.reduce((sum, w) => sum + (w.isExcluded ? 0 : (walletBalances[w.id] || 0)), 0);
             const budgetData = expense.map(cat => { const spent = expenseByCategory[cat.id] || 0; const budget = cat.budget || 0; return { ...cat, spent, percent: budget > 0 ? (spent / budget) * 100 : 0 }; }).sort((a, b) => b.percent - a.percent);
             const totalBudget = budgetData.reduce((sum, i) => sum + (i.budget || 0), 0); const totalBudgetSpent = budgetData.reduce((sum, i) => sum + i.spent, 0); const totalBudgetPercent = totalBudget > 0 ? (totalBudgetSpent / totalBudget) * 100 : 0;
+
+            // --- PERBAIKAN: Logika Summary Budget yang Lebih Informatif ---
+            const remainingBudget = totalBudget - totalBudgetSpent;
+            
+            // Variabel untuk UI Status Baru
+            let budgetTitle = '';
+            let budgetDesc = '';
+            let budgetTheme = ''; // slate, emerald, amber, rose, orange
+            let budgetIcon = '';
+
+            if (totalBudget === 0) {
+                budgetTitle = "Budget Belum Diatur";
+                budgetDesc = "Yuk atur limit pengeluaran per kategori di menu Pengaturan biar keuanganmu lebih terkontrol.";
+                budgetTheme = "slate";
+                budgetIcon = "layout-list";
+            } else if (remainingBudget > 0) {
+                // Cek jika sisa dikit (misal kurang dari 20%)
+                const percentLeft = (remainingBudget / totalBudget) * 100;
+                if (percentLeft <= 20) {
+                    budgetTitle = "Waspada, Menipis!";
+                    budgetDesc = `Sisa budget tinggal ${formatRupiah(remainingBudget)}. Rem dulu jajannya sampai akhir bulan ya!`;
+                    budgetTheme = "amber";
+                    budgetIcon = "alert-circle";
+                } else {
+                    budgetTitle = "Wah, Masih Aman!";
+                    budgetDesc = `Kamu hemat ${formatRupiah(remainingBudget)} sejauh ini. Pertahankan terus ya!`;
+                    budgetTheme = "emerald";
+                    budgetIcon = "thumbs-up";
+                }
+            } else if (remainingBudget === 0) {
+                budgetTitle = "Ngepas Banget!";
+                budgetDesc = "Budget kamu habis pas banget nol rupiah. Jangan belanja lagi ya.";
+                budgetTheme = "orange";
+                budgetIcon = "check-circle-2";
+            } else {
+                budgetTitle = "Waduh, Overbudget!";
+                budgetDesc = `Kamu kelebihan ${formatRupiah(Math.abs(remainingBudget))} dari rencana. Coba cek lagi pengeluaranmu.`;
+                budgetTheme = "rose";
+                budgetIcon = "trending-down";
+            }
+            // -----------------------------------------------------------
+
             const topCategories = [...budgetData].sort((a, b) => b.spent - a.spent).slice(0, 5).filter(c => c.spent > 0); 
             
             // LOGIKA BARU: Grouping 5 Pengeluaran Terbesar berdasarkan Catatan
@@ -1180,65 +1226,64 @@
                     ` : ''}
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
-                        <!-- 1. Saldo Bersih Card (Premium Dark) -->
-                        <div class="rounded-[2rem] bg-slate-900 text-white p-6 relative overflow-hidden shadow-xl shadow-slate-200 group flex flex-col justify-between min-h-[160px]">
+                        <!-- 1. Saldo Bersih Card (Updated Icon: Landmark) -->
+                        <div class="rounded-[2rem] bg-slate-900 text-white p-5 relative overflow-hidden shadow-xl shadow-slate-200 group flex flex-col justify-between min-h-[128px]">
                             <!-- Background Animations -->
-                            <div class="absolute right-0 top-0 w-40 h-40 bg-indigo-500 rounded-full blur-[60px] opacity-30 -mr-10 -mt-10 animate-pulse"></div>
-                            <div class="absolute -right-8 -bottom-10 text-indigo-800 opacity-20 transform -rotate-12 group-hover:scale-110 group-hover:rotate-0 transition-all duration-700">
-                                <i data-lucide="wallet" width="140" height="140"></i>
+                            <div class="absolute right-0 top-0 w-40 h-40 bg-indigo-500 rounded-full blur-[60px] opacity-20 -mr-10 -mt-10 animate-pulse"></div>
+                            <!-- NEW BACKGROUND ICON: Landmark (Aset) -->
+                            <div class="absolute -right-4 -bottom-4 text-indigo-500 opacity-10 transform -rotate-12 group-hover:scale-110 group-hover:rotate-0 transition-all duration-700">
+                                <i data-lucide="landmark" width="96" height="96"></i>
                             </div>
                             
                             <!-- Content -->
                             <div class="relative z-10 flex justify-between items-start">
-                                <div class="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md border border-white/5 group-hover:bg-white/20 transition-colors"><i data-lucide="wallet" class="text-indigo-300" width="20"></i></div>
-                                <span class="text-[10px] font-bold bg-white/10 px-2.5 py-1 rounded-lg text-indigo-200 border border-white/5 backdrop-blur-md">Total Aset</span>
+                                <div class="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/5 group-hover:bg-white/20 transition-colors"><i data-lucide="wallet" class="text-indigo-300" width="18"></i></div>
+                                <span class="text-[9px] font-bold bg-white/10 px-2 py-0.5 rounded-lg text-indigo-200 border border-white/5 backdrop-blur-md">Total Aset</span>
                             </div>
-                            <div class="relative z-10 mt-4">
-                                <h3 class="text-3xl font-black tracking-tight mb-1 group-hover:translate-x-1 transition-transform">${formatRupiah(totalAssets)}</h3>
-                                <p class="text-slate-400 text-xs font-medium">Saldo Bersih Saat Ini</p>
+                            <div class="relative z-10 mt-2">
+                                <h3 class="text-2xl font-black tracking-tight mb-0.5 group-hover:translate-x-1 transition-transform">${formatRupiah(totalAssets)}</h3>
+                                <p class="text-slate-400 text-[10px] font-medium">Saldo Bersih Saat Ini</p>
                             </div>
                         </div>
 
-                        <!-- 2. Pemasukan Card (Animated Green) -->
-                        <div class="rounded-[2rem] bg-white p-6 border border-slate-100 shadow-lg shadow-slate-100/50 group flex flex-col justify-between min-h-[160px] relative overflow-hidden hover:border-emerald-100 transition-colors">
-                            <!-- Background Icon & Blob -->
+                        <!-- 2. Pemasukan Card (Updated Icon: Banknote) -->
+                        <div class="rounded-[2rem] bg-white p-5 border border-slate-100 shadow-lg shadow-slate-100/50 group flex flex-col justify-between min-h-[128px] relative overflow-hidden hover:border-emerald-100 transition-colors">
                             <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-[40px] opacity-60 -mr-8 -mt-8 pointer-events-none"></div>
-                            <div class="absolute -right-6 -bottom-6 text-emerald-100 opacity-50 group-hover:scale-125 group-hover:-rotate-12 transition-transform duration-700">
-                                <i data-lucide="trending-up" width="110" height="110"></i>
+                            <!-- NEW BACKGROUND ICON: Banknote (Uang Masuk) -->
+                            <div class="absolute -right-4 -bottom-4 text-emerald-500 opacity-10 group-hover:scale-125 group-hover:-rotate-12 transition-transform duration-700">
+                                <i data-lucide="banknote" width="80" height="80"></i>
                             </div>
 
-                            <!-- Content -->
                             <div class="flex justify-between items-start z-10">
-                                <div class="p-2.5 bg-emerald-50 rounded-2xl text-emerald-500 group-hover:bg-emerald-100 transition-colors"><i data-lucide="arrow-down-left" width="20"></i></div>
+                                <div class="p-2 bg-emerald-50 rounded-xl text-emerald-500 group-hover:bg-emerald-100 transition-colors"><i data-lucide="arrow-down-left" width="18"></i></div>
                                 <div class="text-right">
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pemasukan</p>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pemasukan</p>
                                 </div>
                             </div>
-                            <div class="z-10 mt-4">
-                                <h3 id="dashboard-total-income" class="text-2xl font-black text-slate-800 mb-3 group-hover:text-emerald-600 transition-colors">${formatRupiah(totalIncome)}</h3>
+                            <div class="z-10 mt-2">
+                                <h3 id="dashboard-total-income" class="text-2xl font-black text-slate-800 mb-2 group-hover:text-emerald-600 transition-colors">${formatRupiah(totalIncome)}</h3>
                                  <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                                     <div class="h-full bg-emerald-400 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)] group-hover:w-full transition-all duration-1000 ease-out" style="width: 70%"></div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 3. Pengeluaran Card (Animated Red) -->
-                        <div class="rounded-[2rem] bg-white p-6 border border-slate-100 shadow-lg shadow-slate-100/50 group flex flex-col justify-between min-h-[160px] relative overflow-hidden hover:border-rose-100 transition-colors">
-                            <!-- Background Icon & Blob -->
+                        <!-- 3. Pengeluaran Card (Updated Icon: Receipt) -->
+                        <div class="rounded-[2rem] bg-white p-5 border border-slate-100 shadow-lg shadow-slate-100/50 group flex flex-col justify-between min-h-[128px] relative overflow-hidden hover:border-rose-100 transition-colors">
                             <div class="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full blur-[40px] opacity-60 -mr-8 -mt-8 pointer-events-none"></div>
-                            <div class="absolute -right-6 -bottom-6 text-rose-100 opacity-50 group-hover:scale-125 group-hover:rotate-12 transition-transform duration-700">
-                                <i data-lucide="trending-down" width="110" height="110"></i>
+                            <!-- NEW BACKGROUND ICON: Receipt (Struk Belanja) -->
+                            <div class="absolute -right-4 -bottom-4 text-rose-500 opacity-10 group-hover:scale-125 group-hover:rotate-12 transition-transform duration-700">
+                                <i data-lucide="receipt" width="80" height="80"></i>
                             </div>
 
-                            <!-- Content -->
                             <div class="flex justify-between items-start z-10">
-                                 <div class="p-2.5 bg-rose-50 rounded-2xl text-rose-500 group-hover:bg-rose-100 transition-colors"><i data-lucide="arrow-up-right" width="20"></i></div>
+                                 <div class="p-2 bg-rose-50 rounded-xl text-rose-500 group-hover:bg-rose-100 transition-colors"><i data-lucide="arrow-up-right" width="18"></i></div>
                                  <div class="text-right">
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pengeluaran</p>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pengeluaran</p>
                                 </div>
                             </div>
-                            <div class="z-10 mt-4">
-                                <h3 id="dashboard-total-expense" class="text-2xl font-black text-slate-800 mb-3 group-hover:text-rose-600 transition-colors">${formatRupiah(totalExpense)}</h3>
+                            <div class="z-10 mt-2">
+                                <h3 id="dashboard-total-expense" class="text-2xl font-black text-slate-800 mb-2 group-hover:text-rose-600 transition-colors">${formatRupiah(totalExpense)}</h3>
                                 <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                                     <div class="h-full bg-rose-400 rounded-full shadow-[0_0_10px_rgba(251,113,133,0.5)] group-hover:w-full transition-all duration-1000 ease-out" style="width: 45%"></div>
                                 </div>
@@ -1267,14 +1312,43 @@
                             <!-- Analisa Budget -->
                             <div>
                                 <h3 class="font-black text-base text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="bar-chart-3" width="18" class="text-indigo-500"></i> Analisa Budget</h3>
-                                <div class="card-friendly p-6 relative overflow-hidden bg-white">
-                                    <div class="flex justify-between items-end mb-5 relative z-10">
-                                        <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Target Budget</p><h3 class="text-xl font-black text-slate-800">${formatRupiah(totalBudgetSpent)} <span class="text-slate-300 font-normal">/ ${formatRupiah(totalBudget)}</span></h3></div>
-                                        <div class="w-12 h-12 rounded-full flex items-center justify-center font-black text-xs ${totalBudgetPercent > 100 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}">${totalBudgetPercent.toFixed(0)}%</div>
+                                <div class="card-friendly p-5 relative overflow-hidden bg-white group">
+                                    
+                                    <!-- Info Angka (Sekarang di Atas) -->
+                                    <div class="flex justify-between items-end mb-3 relative z-10">
+                                        <div>
+                                            <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Total Terpakai</p>
+                                            <div class="flex items-baseline gap-1.5">
+                                                <h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalBudgetSpent)}</h3>
+                                                <span class="text-slate-400 text-xs font-bold">/ ${formatRupiah(totalBudget)}</span>
+                                            </div>
+                                        </div>
+                                        <div class="px-2.5 py-1 rounded-lg flex items-center justify-center font-black text-xs border ${totalBudgetPercent > 100 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
+                                            ${totalBudgetPercent.toFixed(0)}%
+                                        </div>
                                     </div>
-                                    <div class="h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner p-1">
-                                        <div class="h-full rounded-full ${totalBudgetPercent > 100 ? 'bg-rose-400' : 'bg-emerald-400'} transition-all duration-1000 ease-out shadow-sm" style="width: ${Math.min(100, totalBudgetPercent)}%"></div>
+
+                                    <!-- Progress Bar -->
+                                    <div class="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner p-0.5 mb-4">
+                                        <div class="h-full rounded-full ${totalBudgetPercent > 100 ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-indigo-400 to-indigo-500'} transition-all duration-1000 ease-out shadow-sm relative overflow-hidden" style="width: ${Math.min(100, totalBudgetPercent)}%">
+                                            <div class="absolute inset-0 bg-white/30 w-full h-full animate-[shimmer_2s_infinite]" style="background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); transform: skewX(-20deg);"></div>
+                                        </div>
                                     </div>
+
+                                    <!-- BAGIAN BARU: Summary Status (Pindah ke Bawah & Lebih Informatif) -->
+                                    <div class="bg-${budgetTheme}-50 rounded-xl p-3 border border-${budgetTheme}-100 flex gap-3 items-start relative overflow-hidden transition-all">
+                                        <!-- Decorative Blob -->
+                                        <div class="absolute -right-2 -top-2 w-12 h-12 bg-${budgetTheme}-200 rounded-full blur-xl opacity-40"></div>
+                                        
+                                        <div class="w-8 h-8 rounded-full bg-white border border-${budgetTheme}-200 text-${budgetTheme}-500 flex items-center justify-center shadow-sm flex-shrink-0 z-10">
+                                            <i data-lucide="${budgetIcon}" width="14"></i>
+                                        </div>
+                                        <div class="relative z-10">
+                                            <p class="font-bold text-${budgetTheme}-700 text-xs mb-0.5">${budgetTitle}</p>
+                                            <p class="text-[10px] text-${budgetTheme}-600/80 leading-relaxed font-medium">${budgetDesc}</p>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
 
