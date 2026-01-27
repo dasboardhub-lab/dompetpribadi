@@ -244,14 +244,31 @@
         function closeConfirm() { state.confirmModal = { isOpen: false, title: '', message: '', onConfirm: null, type: 'danger' }; render(); }
         function executeConfirm() { if (state.confirmModal.onConfirm) state.confirmModal.onConfirm(); closeConfirm(); }
 
+        // UPDATE: Logika animasi menu bar (Loop saat aktif)
         function updateNavbarActiveState() {
             ['dashboard', 'debts', 'settings'].forEach(id => {
                 const btn = document.getElementById(`nav-btn-${id}`);
                 if (btn) {
+                    const icon = btn.querySelector('lord-icon');
+                    
                     if (state.activeMenu === id) {
+                        // STATE AKTIF: Style Gelap, Animasi Loop, Warna Putih
                         btn.className = "relative px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-2 bg-slate-800 text-white shadow-xl shadow-slate-200 transform scale-105";
+                        
+                        if (icon) {
+                            icon.setAttribute('trigger', 'loop'); // Animasi jalan terus
+                            icon.setAttribute('colors', 'primary:#ffffff,secondary:#a78bfa'); // Ubah warna jadi terang (Putih & Ungu Muda)
+                            icon.classList.remove('opacity-70');
+                        }
                     } else {
-                        btn.className = "relative px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50";
+                        // STATE NON-AKTIF: Style Abu, Animasi Hover, Warna Default
+                        btn.className = "relative px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 group";
+                        
+                        if (icon) {
+                            icon.setAttribute('trigger', 'hover'); // Animasi hanya saat disentuh
+                            icon.setAttribute('colors', 'primary:#64748b,secondary:#8b5cf6'); // Warna abu & ungu
+                            icon.classList.add('opacity-70');
+                        }
                     }
                 }
             });
@@ -298,23 +315,115 @@
             setTxFilter: (field, value) => { state.filter[field] = value; state.shouldRefreshContent = true; render(); },
             setDashboardFilter: (field, value, skipRender = false) => { state.dashboardFilter[field] = value; if (!skipRender) { state.shouldRefreshContent = true; render(); } },
             
-            // --- FIX: Responsive Search Handler ---
+            // --- FIX: Live Search Handler (Tanpa Re-render Halaman) ---
             handleDashboardSearch: (el) => {
-                const val = el.value;
-                const cursorPos = el.selectionStart; // Simpan posisi kursor
+                const query = el.value.toLowerCase();
+                state.dashboardFilter.searchQuery = query; // Update state
+
+                // Ambil elemen target untuk di-update langsung
+                const listEl = document.getElementById('dashboard-tx-list');
+                const incomeEl = document.getElementById('dashboard-total-income');
+                const expenseEl = document.getElementById('dashboard-total-expense');
+                const countEl = document.getElementById('dashboard-tx-count');
+
+                // Jika elemen tidak ditemukan (misal user pindah menu cepat2), stop
+                if (!listEl) return;
+
+                // --- RE-RUN FILTER LOGIC (Sama dengan render dashboard) ---
+                const { transactions, expense, income } = state.data;
+                const filter = state.dashboardFilter;
                 
-                state.dashboardFilter.searchQuery = val;
-                state.shouldRefreshContent = true;
-                render(); // Render ulang halaman
-                
-                // Kembalikan fokus dan kursor setelah render selesai
-                setTimeout(() => {
-                    const input = document.getElementById('dashboard-search-input');
-                    if (input) {
-                        input.focus();
-                        input.setSelectionRange(cursorPos, cursorPos);
+                const filteredTx = transactions.filter(tx => {
+                    if (filter.startDate && tx.date < filter.startDate) return false;
+                    if (filter.endDate && tx.date > filter.endDate) return false;
+                    if (filter.categoryId && filter.categoryId !== 'all' && tx.categoryId !== filter.categoryId) return false;
+                    
+                    if (filter.type !== 'all') {
+                        if (filter.type === 'debt') return tx.isDebtPayment;
+                        if (filter.type === 'transfer') return tx.type === 'transfer';
+                        if (filter.type === 'expense') return tx.type === 'expense' && !tx.isDebtPayment;
+                        if (filter.type === 'income') return tx.type === 'income' && !tx.isDebtPayment;
                     }
-                }, 0);
+                    if (filter.walletId !== 'all') {
+                        if (tx.type === 'transfer') return tx.fromWalletId === filter.walletId || tx.toWalletId === filter.walletId;
+                        return tx.walletId === filter.walletId;
+                    }
+                    
+                    // Filter Pencarian
+                    if (query) {
+                        const notes = (tx.notes || '').toLowerCase();
+                        const wallet = state.data.wallets.find(w => w.id === tx.walletId);
+                        const walletName = wallet ? wallet.name.toLowerCase() : '';
+                        const amountStr = tx.amount.toString();
+                        let catName = '';
+                        if (tx.type === 'transfer') catName = 'transfer';
+                        else if (tx.isDebtPayment || tx.categoryId === 'DEBT_PAYMENT') catName = 'bayar hutang terima piutang';
+                        else {
+                            const cat = (tx.type === 'expense' ? expense : income).find(c => c.id === tx.categoryId);
+                            if (cat) catName = cat.name.toLowerCase();
+                        }
+                        return notes.includes(query) || walletName.includes(query) || catName.includes(query) || amountStr.includes(query);
+                    }
+                    return true;
+                });
+
+                // --- UPDATE ANGKA TOTAL SECARA LANGSUNG ---
+                let totalIncome = 0, totalExpense = 0;
+                filteredTx.forEach(tx => {
+                    if (tx.type === 'income' && !tx.isDebtPayment) totalIncome += tx.amount;
+                    if (tx.type === 'expense' && !tx.isDebtPayment) totalExpense += tx.amount;
+                });
+
+                if (incomeEl) incomeEl.innerText = formatRupiah(totalIncome);
+                if (expenseEl) expenseEl.innerText = formatRupiah(totalExpense);
+                if (countEl) countEl.innerText = `${filteredTx.length} Data`;
+
+                // --- UPDATE LIST TRANSAKSI ---
+                if (filteredTx.length === 0) {
+                    listEl.innerHTML = `<div class="p-12 text-center flex flex-col items-center justify-center opacity-40"><i data-lucide="ghost" width="48" class="mb-2"></i><p class="text-xs font-bold">Tidak ditemukan...</p></div>`;
+                } else {
+                    // Gunakan helper renderTransactionItem yang baru dibuat
+                    listEl.innerHTML = filteredTx.map(tx => window.app.renderTransactionItem(tx)).join('');
+                }
+                
+                // Re-inisialisasi icon hanya untuk area list yang berubah
+                lucide.createIcons({ root: listEl });
+            },
+
+            // --- Helper Baru untuk Render Item Transaksi (Agar kode tidak duplikat) ---
+            renderTransactionItem: (tx) => {
+                const { wallets, expense, income } = state.data;
+                const isExpense = tx.type === 'expense';
+                let name = 'Transaksi', icon = 'circle', color = 'bg-slate-300';
+                let isDebtRelated = false;
+                
+                if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-400'; }
+                else if(tx.isDebtPayment || tx.categoryId === 'DEBT_PAYMENT') { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check'; color = isExpense ? 'bg-rose-400' : 'bg-emerald-400'; isDebtRelated = true; }
+                else { 
+                    const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId); 
+                    if(cat) { name = cat.name; icon = cat.icon; color = cat.color; } 
+                    if (tx.relatedDebtId || tx.categoryId === 'DEBT_IN' || tx.categoryId === 'DEBT_OUT') { isDebtRelated = true; }
+                }
+                const wallet = wallets.find(w => w.id === tx.walletId);
+                const walletName = wallet ? wallet.name : 'Unknown';
+
+                return `<div class="p-3 bg-white rounded-2xl border border-slate-50 shadow-sm hover:shadow-md transition-all flex items-center gap-3 relative overflow-hidden animate-pop-in">
+                    <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white ${color} shadow-sm"><i data-lucide="${icon}" width="16"></i></div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-slate-700 text-xs mb-0.5 truncate">${name}</p>
+                        <div class="flex items-center gap-1.5 overflow-hidden"><span class="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded flex-shrink-0 max-w-[80px] truncate">${walletName}</span><p class="text-[10px] text-slate-400 truncate">${tx.notes || '-'}</p></div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <span class="block font-black text-xs ${isExpense ? 'text-rose-500' : 'text-emerald-500'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span>
+                        <span class="text-[9px] font-bold text-slate-300">${formatDate(tx.date)}</span>
+                    </div>
+                    <div class="flex flex-col gap-1 pl-2 border-l border-slate-100">
+                        ${!isDebtRelated ? `
+                            <button onclick="app.editTransaction('${tx.id}')" class="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded transition-colors" title="Edit"><i data-lucide="edit-2" width="12"></i></button>
+                            <button onclick="app.deleteTransaction('${tx.id}')" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors" title="Hapus"><i data-lucide="trash" width="12"></i></button>
+                        ` : `<div class="h-full flex items-center justify-center px-1"><i data-lucide="lock" width="14" class="text-slate-300" title="Kelola di Menu Hutang"></i></div>`}
+                    </div>
+                </div>`;
             },
 
             applyDateFilter: () => { state.shouldRefreshContent = true; render(); },
@@ -1025,7 +1134,8 @@
                                 <i data-lucide="trending-up" width="100" height="100"></i>
                             </div>
                             <div class="flex justify-between items-start mb-3 relative z-10">
-                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pemasukan</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalIncome)}</h3></div>
+                                <!-- Added ID dashboard-total-income -->
+                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pemasukan</p><h3 id="dashboard-total-income" class="text-2xl font-black text-slate-800">${formatRupiah(totalIncome)}</h3></div>
                                 <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-sm"><i data-lucide="arrow-up-right" width="20"></i></div>
                             </div>
                             <div class="w-full bg-slate-50 h-2 rounded-full overflow-hidden relative z-10"><div class="h-full bg-emerald-400 w-[70%] rounded-full opacity-80"></div></div>
@@ -1036,7 +1146,8 @@
                                 <i data-lucide="trending-down" width="100" height="100"></i>
                             </div>
                             <div class="flex justify-between items-start mb-3 relative z-10">
-                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pengeluaran</p><h3 class="text-2xl font-black text-slate-800">${formatRupiah(totalExpense)}</h3></div>
+                                <!-- Added ID dashboard-total-expense -->
+                                <div><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Pengeluaran</p><h3 id="dashboard-total-expense" class="text-2xl font-black text-slate-800">${formatRupiah(totalExpense)}</h3></div>
                                 <div class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-all shadow-sm"><i data-lucide="arrow-down-right" width="20"></i></div>
                             </div>
                             <div class="w-full bg-slate-50 h-2 rounded-full overflow-hidden relative z-10"><div class="h-full bg-rose-400 w-[45%] rounded-full opacity-80"></div></div>
@@ -1138,7 +1249,8 @@
                                 <div class="p-5 border-b border-slate-50 bg-white/90 sticky top-0 z-10 flex flex-col gap-3">
                                     <div class="flex justify-between items-center">
                                         <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2"><div class="p-1.5 rounded-lg bg-blue-50 text-blue-500"><i data-lucide="history" width="16"></i></div> Riwayat Transaksi</h3>
-                                        <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">${filteredTx.length} Data</span>
+                                        <!-- Added ID dashboard-tx-count -->
+                                        <span id="dashboard-tx-count" class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">${filteredTx.length} Data</span>
                                     </div>
                                     <div class="relative group">
                                         <i data-lucide="search" width="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
@@ -1153,41 +1265,10 @@
                                     </div>
                                 </div>
 
-                                <div class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3">
+                                <!-- Added ID dashboard-tx-list for live updates -->
+                                <div id="dashboard-tx-list" class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3">
                                     ${filteredTx.length === 0 ? `<div class="p-12 text-center flex flex-col items-center justify-center opacity-40"><i data-lucide="ghost" width="48" class="mb-2"></i><p class="text-xs font-bold">Tidak ditemukan...</p></div>` : ''}
-                                    ${filteredTx.map(tx => {
-                                        const isExpense = tx.type === 'expense';
-                                        let name = 'Transaksi', icon = 'circle', color = 'bg-slate-300';
-                                        let isDebtRelated = false;
-                                        
-                                        if(tx.type === 'transfer') { name = 'Transfer'; icon = 'arrow-right-left'; color = 'bg-blue-400'; }
-                                        else if(tx.isDebtPayment || tx.categoryId === 'DEBT_PAYMENT') { name = isExpense ? 'Bayar Hutang' : 'Terima Piutang'; icon = 'check'; color = isExpense ? 'bg-rose-400' : 'bg-emerald-400'; isDebtRelated = true; }
-                                        else { 
-                                            const cat = (isExpense ? expense : income).find(c => c.id === tx.categoryId); 
-                                            if(cat) { name = cat.name; icon = cat.icon; color = cat.color; } 
-                                            if (tx.relatedDebtId || tx.categoryId === 'DEBT_IN' || tx.categoryId === 'DEBT_OUT') { isDebtRelated = true; }
-                                        }
-                                        const wallet = wallets.find(w => w.id === tx.walletId);
-                                        const walletName = wallet ? wallet.name : 'Unknown';
-
-                                        return `<div class="p-3 bg-white rounded-2xl border border-slate-50 shadow-sm hover:shadow-md transition-all flex items-center gap-3 relative overflow-hidden">
-                                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white ${color} shadow-sm"><i data-lucide="${icon}" width="16"></i></div>
-                                            <div class="flex-1 min-w-0">
-                                                <p class="font-bold text-slate-700 text-xs mb-0.5 truncate">${name}</p>
-                                                <div class="flex items-center gap-1.5 overflow-hidden"><span class="text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded flex-shrink-0 max-w-[80px] truncate">${walletName}</span><p class="text-[10px] text-slate-400 truncate">${tx.notes || '-'}</p></div>
-                                            </div>
-                                            <div class="text-right flex-shrink-0">
-                                                <span class="block font-black text-xs ${isExpense ? 'text-rose-500' : 'text-emerald-500'}">${isExpense ? '-' : '+'} ${formatRupiah(tx.amount)}</span>
-                                                <span class="text-[9px] font-bold text-slate-300">${formatDate(tx.date)}</span>
-                                            </div>
-                                            <div class="flex flex-col gap-1 pl-2 border-l border-slate-100">
-                                                ${!isDebtRelated ? `
-                                                    <button onclick="app.editTransaction('${tx.id}')" class="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded transition-colors" title="Edit"><i data-lucide="edit-2" width="12"></i></button>
-                                                    <button onclick="app.deleteTransaction('${tx.id}')" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors" title="Hapus"><i data-lucide="trash" width="12"></i></button>
-                                                ` : `<div class="h-full flex items-center justify-center px-1"><i data-lucide="lock" width="14" class="text-slate-300" title="Kelola di Menu Hutang"></i></div>`}
-                                            </div>
-                                        </div>`;
-                                    }).join('')}
+                                    ${filteredTx.map(tx => window.app.renderTransactionItem(tx)).join('')}
                                 </div>
                             </div>
                         </div>
