@@ -257,13 +257,6 @@
             });
         }
         
-        function updateVisualSelection(selector, value, activeClass, inactiveClass) {
-            const buttons = document.querySelectorAll(selector);
-            buttons.forEach(btn => {
-                if (btn.dataset.value === value) btn.className = activeClass;
-                else btn.className = inactiveClass;
-            });
-        }
 
         function cleanupListeners() { state.unsubscribeListeners.forEach(unsub => unsub()); state.unsubscribeListeners = []; state.data = { expense: [], income: [], wallets: [], transactions: [], debts: [] }; }
         function initDataListeners(code) {
@@ -540,9 +533,12 @@
             setDebtWallet: (id) => { state.debtForm.walletId = id; updateVisualSelection('.debt-wallet-btn', id, 'debt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'debt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50'); },
             setPayDebtWallet: (id) => { state.payDebtForm.walletId = id; updateVisualSelection('.paydebt-wallet-btn', id, 'paydebt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-indigo-50 border-indigo-400 ring-2 ring-indigo-100', 'paydebt-wallet-btn p-3 rounded-2xl border text-left flex items-center gap-3 transition-all bg-white border-slate-100 hover:bg-slate-50'); },
             setSettingsColor: (c) => { state.settingsForm.color = c; const buttons = document.querySelectorAll('.settings-color-btn'); buttons.forEach(btn => { if (btn.dataset.value === c) btn.className = `settings-color-btn w-10 h-10 rounded-full ${c} ring-4 ring-offset-2 ring-slate-200 scale-110 shadow-md transition-all`; else btn.className = `settings-color-btn w-10 h-10 rounded-full ${btn.dataset.value} transition-all hover:scale-110 opacity-70 hover:opacity-100`; }); },
+            setSettingsColor: (c) => { state.settingsForm.color = c; const buttons = document.querySelectorAll('.settings-color-btn'); buttons.forEach(btn => { if (btn.dataset.value === c) btn.className = `settings-color-btn w-10 h-10 rounded-full ${c} ring-4 ring-offset-2 ring-slate-200 scale-110 shadow-md transition-all`; else btn.className = `settings-color-btn w-10 h-10 rounded-full ${btn.dataset.value} transition-all hover:scale-110 opacity-70 hover:opacity-100`; }); },
             setSettingsIcon: (i) => { state.settingsForm.icon = i; updateVisualSelection('.settings-icon-btn', i, `settings-icon-btn p-2.5 rounded-2xl flex justify-center transition-all bg-indigo-500 text-white shadow-lg scale-110 rotate-3`, `settings-icon-btn p-2.5 rounded-2xl flex justify-center transition-all bg-white text-slate-300 hover:bg-slate-100 hover:text-slate-500 shadow-sm`); },
             updateForm: (formName, field, value) => { state[formName][field] = value; },
             handleNumberInput: (targetObj, field, el) => { const isNegative = el.value.startsWith('-'); let rawValue = el.value.replace(/\D/g, ''); if (rawValue.length > 1 && rawValue.startsWith('0')) rawValue = rawValue.substring(1); let numVal = rawValue === '' ? '' : parseInt(rawValue, 10); if (isNegative && numVal !== '') numVal = -numVal; state[targetObj][field] = numVal; let formatted = formatNumberString(rawValue); if (isNegative) formatted = '-' + formatted; if (el.value !== formatted) { const start = el.selectionStart; const drift = formatted.length - el.value.length; el.value = formatted; const newPos = Math.max(0, start + drift); if(el.setSelectionRange) el.setSelectionRange(newPos, newPos); } },
+            updateVisualSelection: (selector, activeId, activeClass, inactiveClass) => { document.querySelectorAll(selector).forEach(btn => { if(btn.dataset.value === activeId) btn.className = activeClass; else btn.className = inactiveClass; }); },
+            
             getDbPath: (col) => collection(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, col),
             getDocPath: (col, id) => doc(db, 'artifacts', appId, 'users', `code_${state.accessCode}`, col, id),
             
@@ -750,50 +746,14 @@
                 ];
                 
                 appDiv.innerHTML = `
-                    <nav id="navbar-area" class="glass-nav sticky top-0 z-30 transition-all duration-300">
-                        <div class="max-w-7xl mx-auto px-4 sm:px-6">
-                            <div class="flex items-center justify-between h-16">
-                                <div class="flex items-center gap-2 group cursor-default">
-                                    <!-- Animasi Logo: Sparkles -->
-                                    <div class="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-all duration-500">
-                                        <lord-icon src="https://cdn.lordicon.com/tqywkdcz.json" trigger="loop" delay="2000" colors="primary:#ffffff" style="width:24px;height:24px"></lord-icon>
-                                    </div>
-                                    <div class="flex flex-col">
-                                        <span class="font-black text-base text-slate-800 tracking-tight leading-none group-hover:text-violet-600 transition-colors">MyKeuangan</span>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-1 bg-white/80 p-1 rounded-full border border-white shadow-sm">
-                                    ${menuItems.map(item => `
-                                        <button id="nav-btn-${item.id}" onclick="app.setMenu('${item.id}')" class="relative px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 group">
-                                            <!-- Menggunakan Lordicon untuk Menu -->
-                                            <lord-icon 
-                                                src="${item.anim}" 
-                                                trigger="hover" 
-                                                colors="primary:#64748b,secondary:#8b5cf6" 
-                                                style="width:20px;height:20px"
-                                                class="opacity-70 group-hover:opacity-100 transition-opacity">
-                                            </lord-icon>
-                                            <span class="hidden sm:inline">${item.label}</span>
-                                        </button>`).join('')}
-                                </div>
-                                <button onclick="app.logout()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500 rounded-full transition-all border border-slate-200 hover:border-rose-500 shadow-sm hover:shadow-lg hover:shadow-rose-200 hover:rotate-90" title="Keluar"><i data-lucide="power" width="16"></i></button>
-                            </div>
-                        </div>
-                    </nav>
-                    <main id="main-content-scroller" class="flex-1 overflow-y-auto scroll-smooth">
-                        <div id="main-content-area" class="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24"></div> 
-                    </main>
-                    
-                    <!-- Wadah Tombol Floating Action Button (FAB) -->
-                    <div id="fab-container" class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none transition-opacity duration-300"></div>
-
-                    <div id="modal-area"></div>
-                    <div id="confirm-modal-area"></div>`;
-                mainContentArea = document.getElementById('main-content-area');
-                state.lastRenderedMenu = null; 
-                lucide.createIcons(); 
+                    <nav id="navbar-area" class="glass-nav sticky top-0 z-30 transition-all duration-300"><div class="max-w-7xl mx-auto px-4 sm:px-6"><div class="flex items-center justify-between h-16"><div class="flex items-center gap-2 group cursor-default"><div class="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-500/20 group-hover:scale-105 transition-all duration-500"><lord-icon src="https://cdn.lordicon.com/tqywkdcz.json" trigger="loop" delay="2000" colors="primary:#ffffff" style="width:24px;height:24px"></lord-icon></div><div class="flex flex-col"><span class="font-black text-base text-slate-800 tracking-tight leading-none group-hover:text-violet-600 transition-colors">MyKeuangan</span></div></div><div class="flex items-center gap-1 bg-white/80 p-1 rounded-full border border-white shadow-sm">${menuItems.map(item => `<button id="nav-btn-${item.id}" onclick="app.setMenu('${item.id}')" class="relative px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 group"><lord-icon src="${item.anim}" trigger="hover" colors="primary:#64748b,secondary:#8b5cf6" style="width:20px;height:20px" class="opacity-70 group-hover:opacity-100 transition-opacity"></lord-icon><span class="hidden sm:inline">${item.label}</span></button>`).join('')}</div><button onclick="app.logout()" class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500 rounded-full transition-all border border-slate-200 hover:border-rose-500 shadow-sm hover:shadow-lg hover:shadow-rose-200 hover:rotate-90" title="Keluar"><i data-lucide="power" width="16"></i></button></div></div></nav>
+                    <main id="main-content-scroller" class="flex-1 overflow-y-auto scroll-smooth"><div id="main-content-area" class="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24"></div></main>
+                    <div id="fab-container" class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none transition-opacity duration-300"></div><div id="modal-area"></div><div id="confirm-modal-area"></div>`;
+                mainContentArea = document.getElementById('main-content-area'); state.lastRenderedMenu = null; lucide.createIcons(); 
             }
-            updateNavbarActiveState();
+
+            document.querySelectorAll('[id^="nav-btn-"]').forEach(btn => { const id = btn.id.replace('nav-btn-', ''); if (id === state.activeMenu) { btn.classList.add('bg-indigo-50', 'text-indigo-600', 'ring-2', 'ring-indigo-100'); btn.classList.remove('text-slate-400'); const icon = btn.querySelector('lord-icon'); if(icon) icon.setAttribute('trigger', 'loop'); } else { btn.classList.remove('bg-indigo-50', 'text-indigo-600', 'ring-2', 'ring-indigo-100'); btn.classList.add('text-slate-400'); const icon = btn.querySelector('lord-icon'); if(icon) icon.setAttribute('trigger', 'hover'); } });
+
 
             // Logika Render Tombol Floating (Hanya di Dashboard)
             const fabContainer = document.getElementById('fab-container');
@@ -1183,7 +1143,7 @@
                                             <div class="flex flex-col gap-1 pl-2 border-l border-slate-100">
                                                 ${!isDebtRelated ? `
                                                     <button onclick="app.editTransaction('${tx.id}')" class="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded transition-colors" title="Edit"><i data-lucide="edit-2" width="12"></i></button>
-                                                    <button onclick="app.deleteTransaction('${tx.id}')" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors" title="Hapus"><i data-lucide="trash" width="12"></i></button>
+                                                    <button onclick="veleteTransaction('${tx.id}')" class="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors" title="Hapus"><i data-lucide="trash" width="12"></i></button>
                                                 ` : `<div class="h-full flex items-center justify-center px-1"><i data-lucide="lock" width="14" class="text-slate-300" title="Kelola di Menu Hutang"></i></div>`}
                                             </div>
                                         </div>`;
